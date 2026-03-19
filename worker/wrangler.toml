@@ -1,8 +1,12 @@
 name = "taoflow-api"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
+account_id = "f0c9ebadb7dff6f693e2d4a514e22465"
 
 [[kv_namespaces]]
 binding = "TAOFLOW_KV"
-id = "YOUR_KV_NAMESPACE_ID"
-preview_id = "YOUR_KV_PREVIEW_NAMESPACE_ID"
+id = "37cf76ce75c44001b0bfc16223a5d605"
+preview_id = "37cf76ce75c44001b0bfc16223a5d605"
+
+[triggers]
+crons = ["*/15 * * * *", "0 */2 * * *"]  # core every 15 min, full every 2 hours
