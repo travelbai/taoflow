@@ -265,7 +265,7 @@ function StakingPage({ subnets, apiUrl, onBack }) {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center font-mono text-xs text-zinc-700">
-                      α{(v.stake ?? 0).toLocaleString()}
+                      α {(v.stake ?? 0).toLocaleString()}
                     </td>
                     {['apy_1h', 'apy_1d', 'apy_7d', 'apy_30d'].map(k => (
                       <td key={k} className="px-4 py-3 text-center font-mono text-xs">
