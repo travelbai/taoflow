@@ -6,7 +6,7 @@ import {
 // Change this to your deployed Worker URL
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-import seedData from '../../worker/seed.json';
+import seedData from './seed.json';
 
 function useData(url) {
   const [data, setData] = useState(null);
@@ -52,13 +52,30 @@ function formatAPY(v) {
   return `${Number(v).toFixed(2)}%`;
 }
 
+function useSortable(defaultKey, defaultDir = 'desc') {
+  const [sortConfig, setSortConfig] = useState({ key: defaultKey, direction: defaultDir });
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
+    }));
+  };
+  const SortIcon = ({ col }) => {
+    const icon = sortConfig.key !== col
+      ? <span className="text-zinc-300">↕</span>
+      : <span className="text-green-500">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+    return <span className="absolute right-0 translate-x-full pl-0.5">{icon}</span>;
+  };
+  return { sortConfig, handleSort, SortIcon };
+}
+
 const LOW_STAKE_THRESHOLD = 1000; // TAO
 
 function StakingPage({ subnets, apiUrl, onBack }) {
   const [netuid, setNetuid] = useState(0);
   const [validators, setValidators] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: 'apy_1d', direction: 'desc' });
+  const { sortConfig, handleSort, SortIcon } = useSortable('apy_1d');
   const [stakeInput, setStakeInput] = useState('');
   const [showLowStake, setShowLowStake] = useState(false);
   const [selectedHotkey, setSelectedHotkey] = useState(null);
@@ -82,20 +99,6 @@ function StakingPage({ subnets, apiUrl, onBack }) {
       .catch(() => setValidators([]))
       .finally(() => setLoading(false));
   }, [netuid, apiUrl]);
-
-  const handleSort = (key) => {
-    setSortConfig(prev => ({
-      key,
-      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
-    }));
-  };
-
-  const SortIcon = ({ col }) => {
-    const icon = sortConfig.key !== col
-      ? <span className="text-zinc-300">↕</span>
-      : <span className="text-green-500">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
-    return <span className="absolute right-0 translate-x-full pl-0.5">{icon}</span>;
-  };
 
   // Filter low-stake validators unless toggled on
   const filtered = useMemo(() =>
@@ -315,7 +318,7 @@ export default function App() {
 
   const [page, setPage] = useState('home');
   const [selectedId, setSelectedId] = useState(null);
-  const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'asc' });
+  const { sortConfig, handleSort, SortIcon } = useSortable('id', 'asc');
 
   // Default select first subnet once data loads
   const selectedSubnet = useMemo(() => {
@@ -341,19 +344,6 @@ export default function App() {
       tvlUsd: acc.tvlUsd + (s.tvlUsd ?? 0),
     }), { netFlow4H: 0, netFlow24H: 0, netFlow7D: 0, netFlow1M: 0, tvlUsd: 0 });
   }, [subnets]);
-
-
-  const handleSort = (key) => {
-    setSortConfig((prev) => ({
-      key,
-      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
-    }));
-  };
-
-  const SortIcon = ({ col }) => {
-    const icon = sortConfig.key !== col ? <span className="text-zinc-300">↕</span> : <span className="text-green-500">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
-    return <span className="absolute right-0 translate-x-full pl-0.5">{icon}</span>;
-  };
 
   if (loading) {
     return (

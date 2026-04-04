@@ -1,0 +1,29 @@
+{
+  "subnets": [
+    { "id": 1,   "name": "Prompting",   "price": 0.8520, "priceChange": 5.2,   "netFlow4H": 1200,  "netFlow24H": 5400,  "netFlow7D": 12500,  "netFlow1M": 45000,  "emission": 12.50, "roi": 12.5, "smartMoney": true,  "smartMoneyTime": "3h 15m" },
+    { "id": 8,   "name": "Trading",     "price": 2.3015, "priceChange": 1.5,   "netFlow4H": 45,    "netFlow24H": 120,   "netFlow7D": 800,    "netFlow1M": 3200,   "emission": 14.20, "roi": 10.1, "smartMoney": true,  "smartMoneyTime": "1h 10m" },
+    { "id": 19,  "name": "Vision",      "price": 1.1250, "priceChange": -2.1,  "netFlow4H": -150,  "netFlow24H": -450,  "netFlow7D": -1200,  "netFlow1M": -5200,  "emission": 8.25,  "roi": 8.2,  "smartMoney": false },
+    { "id": 24,  "name": "Storage",     "price": 0.4560, "priceChange": -0.8,  "netFlow4H": -20,   "netFlow24H": -150,  "netFlow7D": 200,    "netFlow1M": 1100,   "emission": 4.80,  "roi": 6.5,  "smartMoney": false },
+    { "id": 32,  "name": "Compute",     "price": 1.8020, "priceChange": 0.5,   "netFlow4H": 200,   "netFlow24H": 800,   "netFlow7D": 4500,   "netFlow1M": 18000,  "emission": 10.50, "roi": 11.2, "smartMoney": false },
+    { "id": 45,  "name": "DataScrape",  "price": 0.9540, "priceChange": 1.2,   "netFlow4H": 80,    "netFlow24H": 300,   "netFlow7D": 1100,   "netFlow1M": 4200,   "emission": 6.30,  "roi": 9.5,  "smartMoney": false },
+    { "id": 67,  "name": "Translation", "price": 0.2510, "priceChange": -5.4,  "netFlow4H": -300,  "netFlow24H": -900,  "netFlow7D": -2500,  "netFlow1M": -8900,  "emission": 1.10,  "roi": 4.2,  "smartMoney": false },
+    { "id": 89,  "name": "WebScraper",  "price": 0.1520, "priceChange": 2.2,   "netFlow4H": 40,    "netFlow24H": 150,   "netFlow7D": 600,    "netFlow1M": 2100,   "emission": 3.50,  "roi": 8.5,  "smartMoney": false },
+    { "id": 93,  "name": "ImageGen",    "price": 1.5510, "priceChange": -1.4,  "netFlow4H": -90,   "netFlow24H": -300,  "netFlow7D": -800,   "netFlow1M": -3100,  "emission": 7.10,  "roi": 5.2,  "smartMoney": false },
+    { "id": 105, "name": "VideoAI",     "price": 3.1050, "priceChange": 8.4,   "netFlow4H": 1500,  "netFlow24H": 4500,  "netFlow7D": 9800,   "netFlow1M": 38000,  "emission": 18.20, "roi": 15.0, "smartMoney": true,  "smartMoneyTime": "2h 5m" },
+    { "id": 112, "name": "Text2SQL",    "price": 0.8840, "priceChange": 0.5,   "netFlow4H": 15,    "netFlow24H": 50,    "netFlow7D": 200,    "netFlow1M": 850,    "emission": 5.40,  "roi": 7.1,  "smartMoney": false },
+    { "id": 122, "name": "AudioGen",    "price": 0.0512, "priceChange": 15.4,  "netFlow4H": 800,   "netFlow24H": 2500,  "netFlow7D": 3100,   "netFlow1M": 8500,   "emission": 2.15,  "roi": 25.0, "smartMoney": false, "isNew": true }
+  ],
+  "timeline": [
+    { "type": "registration", "time": "10 mins ago", "title": "SN128 注册成功", "creator": "5Grw...", "fee": 512, "feeTrend": "up" },
+    { "type": "registration", "time": "3 hours ago",  "title": "SN127 注册成功", "creator": "5Hks...", "fee": 150, "feeTrend": "flat" },
+    { "type": "registration", "time": "12 hours ago", "title": "SN126 注册成功", "creator": "5FmA...", "fee": 85,  "feeTrend": "down" },
+    { "type": "registration", "time": "1 day ago",    "title": "SN125 注册成功", "creator": "5Dpa...", "fee": 102, "feeTrend": "flat" }
+  ],
+  "meta": {
+    "activeSubnets": 128,
+    "totalSubnets": 128,
+    "recycleFee": 512,
+    "recycleFeeUp": true,
+    "updatedAt": "2026-03-15T10:30:00Z"
+  }
+}
