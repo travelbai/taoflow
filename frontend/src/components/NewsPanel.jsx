@@ -75,7 +75,8 @@ export default function NewsPanel({ onTabClick }) {
         ) : !news.length ? (
           <div className="px-6 py-10 text-center text-zinc-400 font-mono text-xs">暂无快讯</div>
         ) : (
-          <div className="max-h-[780px] overflow-y-auto px-6 py-4" style={{ scrollbarGutter: 'stable' }}>
+          <div style={{ overflowY: 'auto', height: 'calc(100vh - 120px)', padding: '0 24px' }}>
+          <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%', paddingTop: 16, paddingBottom: 16 }}>
             {items.map((item, idx) => {
               if (item.type === 'separator') {
                 return (
@@ -127,6 +128,7 @@ export default function NewsPanel({ onTabClick }) {
                 </div>
               );
             })}
+          </div>
           </div>
         )}
       </div>
