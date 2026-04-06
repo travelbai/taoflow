@@ -196,15 +196,19 @@ PROMPT = """你是 Bittensor 生态编辑。判断以下内容是否属于重要
 
 不重要（日常感谢、转发水帖、纯价格评论、无实质预热帖）→ 只返回 NOT_IMPORTANT
 
-重要 → 改写为中文快讯，规则如下：
-- 120字以内，完整保留推文核心意思，不遗漏关键信息
-- 如果内容来自文章，概括文章大意，并引导"详情见原文"
+重要 → 输出两行，格式严格如下：
+第一行：标题（15字以内，概括核心事件，不加标点）
+第二行：正文（120字以内，完整保留推文核心意思，不遗漏关键信息）
+
+规则：
 - 不加"该项目""该子网"等主语，语气简洁有力
 - 不要附链接，链接由系统自动添加
+- 如果内容来自文章，正文概括大意并引导"详情见原文"
+- 只输出两行，不要任何其他内容
 
 内容：{text}
 
-直接返回中文内容或 NOT_IMPORTANT，不要任何其他说明。"""
+直接输出："""
 
 # ── X 文章正文抓取 ───────────────────────────────────────────────
 def fetch_article(url):
@@ -261,13 +265,13 @@ def call_gemini(tweet_text):
     return text, tokens
 
 def _clean_result(text):
-    """清理 Gemini 返回内容，只保留纯中文快讯"""
+    """清理 Gemini 返回内容，返回 (title, body) 或 None"""
     if not text:
         return None
     text = text.strip()
     if "NOT_IMPORTANT" in text:
         return None
-    # 丢弃含英文分析痕迹的回复（Gemma/Gemini 偶尔回显 prompt）
+    # 丢弃含英文分析痕迹的回复
     garbage_markers = ["Task:", "Input:", "Role:", "Classify", "Response:", "Determine if", "Constraints:"]
     for marker in garbage_markers:
         if marker in text:
@@ -277,11 +281,20 @@ def _clean_result(text):
     # 去掉可能残留的引号包裹
     if text.startswith('"') and text.endswith('"'):
         text = text[1:-1].strip()
-    # 最终检查：中文字符占比 < 30% 视为垃圾
+    # 中文字符占比 < 30% 视为垃圾
     chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
     if len(text) > 0 and chinese_chars / len(text) < 0.3:
         return None
-    return text if text else None
+    # 拆分标题和正文（第一行为标题，其余为正文）
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    if len(lines) >= 2:
+        title = lines[0].rstrip("：:。，")
+        body = "\n".join(lines[1:])
+    else:
+        # 只有一行：截取前15字做标题，全文做正文
+        title = lines[0][:15].rstrip("，。、")
+        body = lines[0]
+    return (title, body)
 
 def rewrite(text):
     # 检测是否含 X 文章链接
@@ -469,19 +482,21 @@ def main():
         if not rate_limiter.can_continue():
             break
         print(f"[{i+1}/{len(tweets)}] 处理 {tweet['subnet']}...")
-        content = rewrite(tweet["text"])
-        if not content:
+        result = rewrite(tweet["text"])
+        if not result:
             continue
+        title, body = result
 
         key = f"news:{today}:{hashlib.md5(tweet['tid'].encode()).hexdigest()[:6]}"
         kv_put(key, {
             "subnet":     tweet["subnet"],
-            "content":    content,
+            "title":      title,
+            "content":    body,
             "url":        tweet["url"],
             "created_at": tweet["created_at"],
         })
         saved += 1
-        print(f"✓ [{tweet['subnet']}] {content[:40]}...")
+        print(f"✓ [{tweet['subnet']}] {title} | {body[:30]}...")
 
     # 清理超过30天的过期数据
     cutoff_date = (datetime.now(timezone.utc) - timedelta(days=RETAIN_DAYS)).strftime("%Y-%m-%d")
