@@ -15,13 +15,13 @@ const toDateLabel = dateStr =>
 const S = {
   title: {
     fontWeight: 600, fontSize: 16, color: '#09090b', lineHeight: '26px',
-    marginTop: 6, letterSpacing: '-0.01em',
+    letterSpacing: '-0.01em',
   },
   body: {
-    fontSize: 14.5, color: '#52525b', lineHeight: '24px', marginTop: 6,
+    fontSize: 14.5, color: '#52525b', lineHeight: '24px', marginTop: 14,
   },
   link: {
-    fontSize: 13, color: '#a1a1aa', marginTop: 10, display: 'inline-block',
+    fontSize: 13, color: '#a1a1aa', marginTop: 16, display: 'inline-block',
     transition: 'color 0.15s',
   },
   dot: {
@@ -123,14 +123,12 @@ export default function NewsPanel({ onTabClick }) {
 
                   {/* Content */}
                   <div style={{ flex: 1, paddingBottom: 28 }}>
-                    {/* Meta row */}
-                    <div className="flex items-center" style={{ gap: 10 }}>
+                    {/* Meta + Title in one line */}
+                    <div className="flex items-baseline flex-wrap" style={{ gap: '0 10px' }}>
                       <span style={S.time}>{toBeijingTime(item.created_at)}</span>
                       <span style={S.tag}>{item.subnet}</span>
+                      <span style={S.title}>{item.title || item.content?.slice(0, 15)}</span>
                     </div>
-
-                    {/* Title */}
-                    <div style={S.title}>{item.title || item.content?.slice(0, 15)}</div>
 
                     {/* Body */}
                     <div style={S.body}>{item.content}</div>
