@@ -18,10 +18,10 @@ const S = {
     letterSpacing: '-0.01em',
   },
   body: {
-    fontSize: 14.5, color: '#52525b', lineHeight: '24px', marginTop: 14,
+    fontSize: 14.5, color: '#52525b', lineHeight: '24px', marginTop: 24,
   },
   link: {
-    fontSize: 13, color: '#a1a1aa', marginTop: 16, display: 'inline-block',
+    fontSize: 13, color: '#a1a1aa', marginTop: 24, display: 'inline-block',
     transition: 'color 0.15s',
   },
   dot: {
