@@ -293,6 +293,27 @@ async function fetchStakingForNetuid(env, netuid) {
   return { data, updatedAt };
 }
 
+// ─── News (X-scraped subnet updates) ─────────────────────────────────────────
+
+async function getNewsList(env, days = 7) {
+  const results = [];
+  const now = new Date();
+
+  for (let i = 0; i < days; i++) {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    const listed = await env.TAOFLOW_KV.list({ prefix: `news:${dateStr}:` });
+
+    await Promise.all(listed.keys.map(async ({ name }) => {
+      const value = await env.TAOFLOW_KV.get(name, { type: 'json' });
+      if (value) results.push({ key: name, date: dateStr, ...value });
+    }));
+  }
+
+  return results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
 // ─── Worker handlers ─────────────────────────────────────────────────────────
 
 export default {
@@ -338,6 +359,15 @@ export default {
           { status: 500, headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' } }
         );
       }
+    }
+
+    // News endpoint — fetch X-scraped subnet news from KV, up to 30 days
+    if (pathname === '/api/news') {
+      const days = Math.min(parseInt(searchParams.get('days') ?? '7', 10), 30);
+      const news = await getNewsList(env, days);
+      return new Response(JSON.stringify(news), {
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' },
+      });
     }
 
     // Staking endpoint — on-demand fetch per netuid, 24h KV cache

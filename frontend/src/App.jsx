@@ -7,6 +7,7 @@ import {
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 import seedData from './seed.json';
+import NewsPanel from './components/NewsPanel';
 
 function useData(url) {
   const [data, setData] = useState(null);
@@ -71,7 +72,7 @@ function useSortable(defaultKey, defaultDir = 'desc') {
 
 const LOW_STAKE_THRESHOLD = 1000; // TAO
 
-function StakingPage({ subnets, apiUrl, onBack }) {
+function StakingPage({ subnets, apiUrl, onNavigate }) {
   const [netuid, setNetuid] = useState(0);
   const [validators, setValidators] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -138,8 +139,9 @@ function StakingPage({ subnets, apiUrl, onBack }) {
       {/* ── Title row ── */}
       <div className="border border-zinc-200 bg-white">
         <div className="px-6 py-4 flex items-center justify-between">
-          <button onClick={onBack} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">NET FLOW</button>
+          <button onClick={() => onNavigate('home')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">NET FLOW</button>
           <button className="text-sm font-medium tracking-widest uppercase text-black border-b-2 border-green-500 pb-0.5">Staking</button>
+          <button onClick={() => onNavigate('news')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">News</button>
         </div>
       </div>
       {/* Subnet + Calculator row */}
@@ -397,7 +399,9 @@ export default function App() {
       </header>
 
       {page === 'staking' ? (
-        <StakingPage subnets={subnets} apiUrl={API_URL} onBack={() => setPage('home')} />
+        <StakingPage subnets={subnets} apiUrl={API_URL} onNavigate={setPage} />
+      ) : page === 'news' ? (
+        <NewsPanel onTabClick={setPage} />
       ) : (
       <div className="flex flex-col gap-8">
         {/* ── Subnet Table ── */}
@@ -405,6 +409,7 @@ export default function App() {
           <div className="p-6 border-b border-zinc-200 flex items-center justify-between">
             <button onClick={() => setPage('home')} className={`text-sm font-medium tracking-widest uppercase pb-0.5 ${page === 'home' ? 'text-black border-b-2 border-green-500' : 'text-zinc-400'}`}>NET FLOW</button>
             <button onClick={() => setPage('staking')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">Staking</button>
+            <button onClick={() => setPage('news')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">News</button>
           </div>
           <div className="overflow-x-auto max-h-[720px] overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
             <table className="w-full text-sm text-left table-fixed">

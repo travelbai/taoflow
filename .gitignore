@@ -9,12 +9,16 @@ frontend/dist/
 # Environment variables
 .env
 frontend/.env
+scraper/.env
 
 # Wrangler local state
 .wrangler/
 
 # Claude Code local settings
 .claude/
+
+# Temp data
+tmp/
 
 # OS
 .DS_Store

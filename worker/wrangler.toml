@@ -9,4 +9,4 @@ id = "37cf76ce75c44001b0bfc16223a5d605"
 preview_id = "37cf76ce75c44001b0bfc16223a5d605"
 
 [triggers]
-crons = ["*/15 * * * *", "0 */2 * * *"]  # core every 15 min, full every 2 hours
+crons = ["*/20 * * * *", "0 */2 * * *"]  # core every 20 min, full every 2h
