@@ -14,11 +14,11 @@ const toDateLabel = dateStr =>
 
 const S = {
   title: {
-    fontWeight: 600, fontSize: 16, color: '#09090b', lineHeight: '26px',
+    fontWeight: 600, fontSize: 16, color: '#16a34a', lineHeight: '26px',
     letterSpacing: '-0.01em',
   },
   body: {
-    fontSize: 14.5, color: '#52525b', lineHeight: '24px', marginTop: 24,
+    fontSize: 14.5, color: '#52525b', lineHeight: '28px', marginTop: 24,
   },
   link: {
     fontSize: 13, color: '#a1a1aa', marginTop: 24, display: 'inline-block',
@@ -122,7 +122,7 @@ export default function NewsPanel({ onTabClick }) {
                   </div>
 
                   {/* Content */}
-                  <div style={{ flex: 1, paddingBottom: 28 }}>
+                  <div style={{ flex: 1, paddingBottom: 36 }}>
                     {/* Meta + Title in one line */}
                     <div className="flex items-baseline flex-wrap" style={{ gap: '0 10px' }}>
                       <span style={S.time}>{toBeijingTime(item.created_at)}</span>
@@ -130,8 +130,12 @@ export default function NewsPanel({ onTabClick }) {
                       <span style={S.title}>{item.title || item.content?.slice(0, 15)}</span>
                     </div>
 
-                    {/* Body */}
-                    <div style={S.body}>{item.content}</div>
+                    {/* Body — split into paragraphs on Chinese period */}
+                    <div style={S.body}>
+                      {item.content?.split(/(?<=。)/).filter(Boolean).map((p, i) => (
+                        <p key={i} style={{ margin: 0, marginTop: i > 0 ? 12 : 0 }}>{p}</p>
+                      ))}
+                    </div>
 
                     {/* Source link */}
                     {item.url && (
