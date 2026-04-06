@@ -295,23 +295,40 @@ async function fetchStakingForNetuid(env, netuid) {
 
 // ─── News (X-scraped subnet updates) ─────────────────────────────────────────
 
+const NEWS_CACHE_KEY = 'taoflow_news_cache';
+const NEWS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 async function getNewsList(env, days = 7) {
-  const results = [];
-  const now = new Date();
-
-  for (let i = 0; i < days; i++) {
-    const d = new Date(now);
-    d.setUTCDate(d.getUTCDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
-    const listed = await env.TAOFLOW_KV.list({ prefix: `news:${dateStr}:` });
-
-    await Promise.all(listed.keys.map(async ({ name }) => {
-      const value = await env.TAOFLOW_KV.get(name, { type: 'json' });
-      if (value) results.push({ key: name, date: dateStr, ...value });
-    }));
+  // Try cache first
+  const cached = await env.TAOFLOW_KV.get(NEWS_CACHE_KEY, { type: 'json' });
+  if (cached && Date.now() - cached.ts < NEWS_CACHE_TTL && cached.days >= days) {
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - days);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    return cached.data.filter(n => n.date >= cutoffStr);
   }
 
-  return results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  // Single list call for all news keys
+  const listed = await env.TAOFLOW_KV.list({ prefix: 'news:' });
+  const results = await Promise.all(
+    listed.keys.map(async ({ name }) => {
+      const value = await env.TAOFLOW_KV.get(name, { type: 'json' });
+      if (!value) return null;
+      const date = name.split(':')[1] || '';
+      return { key: name, date, ...value };
+    })
+  );
+
+  const sorted = results.filter(Boolean)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  // Write cache (store 30 days, filter on read)
+  await env.TAOFLOW_KV.put(NEWS_CACHE_KEY, JSON.stringify({ data: sorted, ts: Date.now(), days: 30 }));
+
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - days);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+  return sorted.filter(n => n.date >= cutoffStr);
 }
 
 // ─── Worker handlers ─────────────────────────────────────────────────────────
