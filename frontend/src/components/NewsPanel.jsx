@@ -32,14 +32,14 @@ const S = {
     width: 1, flexGrow: 1, borderLeft: '2px dashed #e4e4e7', marginLeft: 4,
   },
   time: {
-    fontSize: 12, color: '#a1a1aa', fontFamily: 'monospace',
-    whiteSpace: 'nowrap', flexShrink: 0,
+    fontSize: 13, color: '#16a34a', fontFamily: 'monospace',
+    whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 500, opacity: 0.7,
   },
   tag: {
-    fontSize: 11, color: '#3f3f46', backgroundColor: '#f4f4f5',
-    padding: '3px 10px', borderRadius: 4, fontFamily: 'monospace',
-    letterSpacing: '0.04em', whiteSpace: 'nowrap', flexShrink: 0,
-    fontWeight: 500,
+    fontSize: 12, color: '#16a34a', backgroundColor: 'rgba(34,197,94,0.08)',
+    padding: '3px 10px', borderRadius: 20, fontFamily: 'monospace',
+    letterSpacing: '0.03em', whiteSpace: 'nowrap', flexShrink: 0,
+    fontWeight: 600, border: '1px solid rgba(34,197,94,0.15)',
   },
   dateSep: {
     fontSize: 12, color: '#a1a1aa', fontFamily: 'monospace',
