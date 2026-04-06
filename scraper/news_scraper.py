@@ -260,6 +260,29 @@ def call_gemini(tweet_text):
     tokens = usage.get("promptTokenCount", 0) + usage.get("candidatesTokenCount", 0)
     return text, tokens
 
+def _clean_result(text):
+    """清理 Gemini 返回内容，只保留纯中文快讯"""
+    if not text:
+        return None
+    text = text.strip()
+    if "NOT_IMPORTANT" in text:
+        return None
+    # 丢弃含英文分析痕迹的回复（Gemma/Gemini 偶尔回显 prompt）
+    garbage_markers = ["Task:", "Input:", "Role:", "Classify", "Response:", "Determine if", "Constraints:"]
+    for marker in garbage_markers:
+        if marker in text:
+            return None
+    # 去掉 markdown 标记
+    text = re.sub(r"^\s*[\*\-•]\s*", "", text, flags=re.MULTILINE).strip()
+    # 去掉可能残留的引号包裹
+    if text.startswith('"') and text.endswith('"'):
+        text = text[1:-1].strip()
+    # 最终检查：中文字符占比 < 30% 视为垃圾
+    chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
+    if len(text) > 0 and chinese_chars / len(text) < 0.3:
+        return None
+    return text if text else None
+
 def rewrite(text):
     # 检测是否含 X 文章链接
     article_match = re.search(r"https://x\.com/i/articles/\S+", text)
@@ -292,11 +315,8 @@ def rewrite(text):
         result, tokens = call_gemini(safe_content)
         rate_limiter.record_tokens(tokens or est)
         rate_limiter.record_call()
-        if "NOT_IMPORTANT" in result:
-            return None
-        # 清理 markdown 标记
-        cleaned = re.sub(r"^\s*[\*\-•]\s*", "", result).strip()
-        return cleaned if cleaned else None
+        cleaned = _clean_result(result)
+        return cleaned
     except Exception as e:
         if "429" in str(e):
             print("  429 限速，等待 60 秒后重试...")
@@ -306,7 +326,7 @@ def rewrite(text):
                 result, tokens = call_gemini(safe_content)
                 rate_limiter.record_tokens(tokens or est)
                 rate_limiter.record_call()
-                return None if "NOT_IMPORTANT" in result else result
+                return _clean_result(result)
             except Exception as e2:
                 print(f"  重试仍失败: {e2}")
                 return None
