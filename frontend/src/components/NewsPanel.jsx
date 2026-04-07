@@ -107,12 +107,12 @@ export default function NewsPanel({ onTabClick }) {
             {items.map((item, idx) => {
               if (item.type === 'separator') {
                 return (
-                  <div key={`sep-${item.date}`} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '28px 0 20px' }}>
-                    <div style={{ flex: 1, height: '0.5px', background: 'var(--color-border-tertiary)' }} />
-                    <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', letterSpacing: '0.08em', fontWeight: 400 }}>
+                  <div key={`sep-${item.date}`} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '28px 0 20px', margin: '0' }}>
+                    <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e5e5' }} />
+                    <span style={{ fontSize: '12px', color: '#aaa', letterSpacing: '0.06em', fontWeight: 400, whiteSpace: 'nowrap' }}>
                       {toDateLabel(item.date)}
                     </span>
-                    <div style={{ flex: 1, height: '0.5px', background: 'var(--color-border-tertiary)' }} />
+                    <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e5e5' }} />
                   </div>
                 );
               }
