@@ -107,7 +107,7 @@ export default function NewsPanel({ onTabClick }) {
             {items.map((item, idx) => {
               if (item.type === 'separator') {
                 return (
-                  <div key={`sep-${item.date}`} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 0' }}>
+                  <div key={`sep-${item.date}`} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '8px 0', marginLeft: 26 }}>
                     <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e5e5' }} />
                     <span style={{ fontSize: '12px', color: '#aaa', letterSpacing: '0.06em', fontWeight: 400, whiteSpace: 'nowrap' }}>
                       {toDateLabel(item.date)}
@@ -120,7 +120,7 @@ export default function NewsPanel({ onTabClick }) {
               const isLast = idx === items.length - 1 || (idx < items.length - 1 && items[idx + 1].type === 'separator');
 
               return (
-                <div key={item.key} className="flex" style={{ gap: 16, minHeight: 80 }}>
+                <div key={item.key} className="flex" style={{ gap: 16 }}>
                   {/* Timeline: dot + dashed line */}
                   <div className="flex flex-col items-center" style={{ width: 10 }}>
                     <div style={S.dot} />
@@ -128,7 +128,7 @@ export default function NewsPanel({ onTabClick }) {
                   </div>
 
                   {/* Content */}
-                  <div style={{ flex: 1, paddingBottom: 16 }}>
+                  <div style={{ flex: 1, paddingBottom: 20 }}>
                     {/* Meta + Title in one line */}
                     <div className="flex items-baseline flex-wrap" style={{ gap: '0 10px' }}>
                       <span style={S.time}>{toBeijingTime(item.created_at)}</span>
