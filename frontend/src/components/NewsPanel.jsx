@@ -128,7 +128,7 @@ export default function NewsPanel({ onTabClick }) {
                   </div>
 
                   {/* Content */}
-                  <div style={{ flex: 1, paddingBottom: 12 }}>
+                  <div style={{ flex: 1, paddingBottom: 36 }}>
                     {/* Meta + Title in one line */}
                     <div className="flex items-baseline flex-wrap" style={{ gap: '0 10px' }}>
                       <span style={S.time}>{toBeijingTime(item.created_at)}</span>
