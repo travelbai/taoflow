@@ -49,15 +49,6 @@ async function fetchPages(env, path, params = {}, maxPages = 10) {
   return [...(first.data ?? []), ...rest.flat()];
 }
 
-// ─── Data processing ─────────────────────────────────────────────────────────
-
-function relativeTime(ts) {
-  const secs = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
-  if (secs < 3600) return `${Math.floor(secs / 60)} mins ago`;
-  if (secs < 86400) return `${Math.floor(secs / 3600)} hours ago`;
-  return `${Math.floor(secs / 86400)} days ago`;
-}
-
 // ─── Refresh logic ───────────────────────────────────────────────────────────
 
 async function sleep(ms) {
@@ -232,7 +223,7 @@ async function refresh(env) {
 
   const timeline = (recentRegsResp.data ?? []).map(r => ({
     type: 'registration',
-    time: relativeTime(r.timestamp ?? r.created_at),
+    timestamp: r.timestamp ?? r.created_at ?? '',
     title: `SN${r.netuid} 注册成功`,
     creator: r.owner?.ss58 ?? r.creator ?? '',
     fee: Math.round(rao(r.registration_cost ?? r.cost ?? 0)),

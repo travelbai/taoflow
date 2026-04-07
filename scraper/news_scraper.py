@@ -5,8 +5,6 @@ except Exception:
     pass
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-from bs4 import BeautifulSoup
-
 load_dotenv()
 
 # ── 配置（全部从环境变量读取，代码中无任何硬编码密钥）────────────
@@ -170,6 +168,18 @@ SUBNET_ACCOUNTS = {
     "byteleap_ai":      "SN128 ByteLeap",
 }
 
+# KOL / 监测账号：只抓取提及具体子网的推文，日常感想跳过
+KOL_ACCOUNTS = {"const_reborn"}
+
+# 子网名称反向索引：名称(小写) → 子网标签，用于 KOL 推文匹配
+SUBNET_NAME_LOOKUP = {}
+for _label in SUBNET_ACCOUNTS.values():
+    # "SN65 TPN" → name="TPN", number="65"
+    parts = _label.split(" ", 1)
+    if len(parts) == 2:
+        sn_num, sn_name = parts
+        SUBNET_NAME_LOOKUP[sn_name.lower()] = _label
+
 # ── 网络检测（开机后等待网络就绪）───────────────────────────────
 def wait_for_network(retries=5, interval=30):
     for i in range(retries):
@@ -210,28 +220,6 @@ PROMPT = """你是 Bittensor 生态编辑。判断以下内容是否属于重要
 内容：{text}
 
 直接输出："""
-
-# ── X 文章正文抓取 ───────────────────────────────────────────────
-def fetch_article(url):
-    """检测推文中的 X 文章链接并抓取正文前1500字"""
-    try:
-        resp = requests.get(
-            url,
-            headers={
-                "Cookie": f"auth_token={cfg['X_AUTH_TOKEN']}; ct0={cfg['X_CT0']}",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            },
-            timeout=15,
-        )
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-        # 移除脚本、样式等无用标签
-        for tag in soup(["script", "style", "nav", "header", "footer"]):
-            tag.decompose()
-        text = soup.get_text(separator=" ", strip=True)
-        return text[:1500]
-    except Exception:
-        return ""
 
 def estimate_tokens(text):
     """粗略估算 token 数：中文 ~1.5 token/字，英文 ~0.75 token/词，加 prompt 开销"""
@@ -297,18 +285,18 @@ def _clean_result(text):
         body = lines[0]
     return (title, body)
 
-def rewrite(text):
-    # 检测是否含 X 文章链接
-    article_match = re.search(r"https://x\.com/i/articles/\S+", text)
-    if article_match:
-        article_text = fetch_article(article_match.group(0))
-        if article_text:
-            combined = f"推文摘要：{text}\n\n文章正文节选：{article_text}"
-            safe_content = combined[:3000]
+def rewrite(text, subnet="", has_urls=False):
+    # 去掉所有链接后，剩余文字太少
+    text_without_urls = re.sub(r"https?://\S+", "", text).strip()
+    if len(text_without_urls) < 30:
+        if has_urls:
+            # 有实际链接（文章类推文）→ 固定快讯
+            return (f"{subnet}发布最新文章", "发布了一篇新文章，点击查看原文了解详情。")
         else:
-            safe_content = text[:1500]
-    else:
-        safe_content = text[:1500]
+            # 纯图片/媒体，无文字内容 → 跳过
+            return None
+
+    safe_content = text[:1500]
 
     # TPM 检查
     est = estimate_tokens(safe_content)
@@ -415,6 +403,13 @@ def fetch_tweets():
             if text.startswith("RT @"):
                 continue
 
+            # 用展开后的 URL 替换 t.co 短链，确保文章链接可被检测
+            for url_entity in legacy.get("entities", {}).get("urls", []):
+                short = url_entity.get("url", "")
+                expanded = url_entity.get("expanded_url", "")
+                if short and expanded:
+                    text = text.replace(short, expanded)
+
             try:
                 created_at = datetime.strptime(
                     legacy.get("created_at", ""), "%a %b %d %H:%M:%S +0000 %Y"
@@ -430,16 +425,35 @@ def fetch_tweets():
             author = (user.get("core", {}).get("screen_name")
                       or user.get("legacy", {}).get("screen_name", "")).lower()
             subnet = SUBNET_ACCOUNTS.get(author)
+            if not subnet and author in KOL_ACCOUNTS:
+                # KOL 账号：从推文中识别提及的子网（编号或名称）
+                matched_sn = None
+                # 先匹配 SN + 数字
+                sn_match = re.search(r"[Ss][Nn]\s*(\d+)", text)
+                if sn_match:
+                    matched_sn = f"SN{sn_match.group(1)}"
+                else:
+                    # 再匹配子网名称（按名称长度倒序，优先匹配长名称避免误判）
+                    for name in sorted(SUBNET_NAME_LOOKUP, key=len, reverse=True):
+                        if re.search(r'\b' + re.escape(name) + r'\b', text, re.IGNORECASE):
+                            matched_sn = SUBNET_NAME_LOOKUP[name]
+                            break
+                if matched_sn:
+                    subnet = f"const评{matched_sn}"
+                else:
+                    continue  # 没提到具体子网，跳过
             if not subnet:
                 continue
 
             tid = legacy.get("id_str", "")
+            has_urls = bool(legacy.get("entities", {}).get("urls", []))
             tweets.append({
                 "text": text,
                 "subnet": subnet,
                 "created_at": created_at.isoformat(),
                 "url": f"https://x.com/{author}/status/{tid}",
                 "tid": tid,
+                "has_urls": has_urls,
             })
 
         if reached_cutoff or not next_cursor:
@@ -462,13 +476,6 @@ def kv_get(key):
     r = requests.get(f"{KV_BASE}/values/{key}", headers=KV_HDR, timeout=10)
     return r.json() if r.ok else None
 
-def kv_list(prefix):
-    r = requests.get(f"{KV_BASE}/keys", headers=KV_HDR,
-                     params={"prefix": prefix}, timeout=10)
-    return [k["name"] for k in r.json().get("result", [])] if r.ok else []
-
-def kv_delete(key):
-    requests.delete(f"{KV_BASE}/values/{key}", headers=KV_HDR, timeout=10)
 
 # ── 主流程 ───────────────────────────────────────────────────────
 def main():
@@ -487,6 +494,8 @@ def main():
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     saved, skipped = 0, 0
     new_items = []
+    # 原文去重：同一子网、相同推文内容（去掉链接后）不重复入库
+    seen_content = set()
 
     for i, tweet in enumerate(tweets):
         if not rate_limiter.can_continue():
@@ -496,8 +505,15 @@ def main():
             skipped += 1
             print(f"[{i+1}/{len(tweets)}] 跳过 {tweet['subnet']}（已存在）")
             continue
+        # 用子网+去链接原文做内容指纹，同内容不同tid只处理一次
+        text_clean = re.sub(r"https?://\S+", "", tweet["text"]).strip()
+        content_fp = hashlib.md5((tweet["subnet"] + text_clean).encode()).hexdigest()[:8]
+        if content_fp in seen_content:
+            print(f"[{i+1}/{len(tweets)}] 跳过 {tweet['subnet']}（重复内容）")
+            continue
+        seen_content.add(content_fp)
         print(f"[{i+1}/{len(tweets)}] 处理 {tweet['subnet']}...")
-        result = rewrite(tweet["text"])
+        result = rewrite(tweet["text"], subnet=tweet["subnet"], has_urls=tweet.get("has_urls", False))
         if not result:
             continue
         title, body = result
@@ -519,13 +535,6 @@ def main():
     all_news.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     kv_put("taoflow_news_all", all_news)
     print(f"汇总写入完成，共 {len(all_news)} 条")
-
-    # 删除单条 news: key，只保留汇总
-    old_keys = kv_list("news:")
-    if old_keys:
-        for key in old_keys:
-            kv_delete(key)
-        print(f"已清理 {len(old_keys)} 个单条 key")
 
     print(f"完成，共保存 {saved} 条快讯，跳过 {skipped} 条重复")
 

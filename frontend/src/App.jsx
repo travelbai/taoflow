@@ -311,6 +311,15 @@ function formatUTC(date) {
   return date.toUTCString().replace('GMT', 'UTC');
 }
 
+function relativeTime(ts) {
+  if (!ts) return '';
+  const secs = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (secs < 60) return 'just now';
+  if (secs < 3600) return `${Math.floor(secs / 60)} mins ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)} hours ago`;
+  return `${Math.floor(secs / 86400)} days ago`;
+}
+
 export default function App() {
   const { data, loading, error, updatedAt } = useData(API_URL);
 
@@ -561,7 +570,7 @@ export default function App() {
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-zinc-400 font-mono mb-3">{item.time}</p>
+                <p className="text-[10px] text-zinc-400 font-mono mb-3">{relativeTime(item.timestamp)}</p>
                 <div className="grid grid-cols-3 gap-px bg-zinc-200 border border-zinc-200">
                   <div className="col-span-2 bg-zinc-50 p-2">
                     <span className="block text-[9px] tracking-widest uppercase text-zinc-400 mb-1">Creator</span>
