@@ -458,6 +458,10 @@ def kv_put(key, value):
     requests.put(f"{KV_BASE}/values/{key}", headers=KV_HDR,
                  data=json.dumps(value), timeout=10)
 
+def kv_get(key):
+    r = requests.get(f"{KV_BASE}/values/{key}", headers=KV_HDR, timeout=10)
+    return r.json() if r.ok else None
+
 def kv_list(prefix):
     r = requests.get(f"{KV_BASE}/keys", headers=KV_HDR,
                      params={"prefix": prefix}, timeout=10)
@@ -510,10 +514,25 @@ def main():
 
     # 清理超过30天的过期数据
     cutoff_date = (datetime.now(timezone.utc) - timedelta(days=RETAIN_DAYS)).strftime("%Y-%m-%d")
-    for key in kv_list("news:"):
+    all_keys = kv_list("news:")
+    for key in all_keys:
         parts = key.split(":")
         if len(parts) >= 2 and parts[1] < cutoff_date:
             kv_delete(key)
+            all_keys.remove(key)
+
+    # 构建汇总数据写入 taoflow_news_all，Worker 直接读取这一个 key
+    print("构建快讯汇总...")
+    all_news = []
+    for key in all_keys:
+        if key == "taoflow_news_cache":
+            continue
+        value = kv_get(key)
+        if value:
+            all_news.append({"key": key, **value})
+    all_news.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    kv_put("taoflow_news_all", all_news)
+    print(f"汇总写入完成，共 {len(all_news)} 条")
 
     print(f"完成，共保存 {saved} 条快讯，跳过 {skipped} 条重复")
 
