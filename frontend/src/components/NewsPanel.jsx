@@ -7,6 +7,9 @@ const toBeijingTime = iso =>
     timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false,
   });
 
+const toBeijingDate = iso =>
+  new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+
 const toDateLabel = dateStr =>
   new Date(dateStr + 'T00:00:00Z').toLocaleDateString('zh-CN', {
     timeZone: 'Asia/Shanghai', month: 'long', day: 'numeric',
@@ -62,7 +65,8 @@ export default function NewsPanel({ onTabClick }) {
   }, []);
 
   const grouped = news.reduce((acc, item) => {
-    (acc[item.date] ??= []).push(item);
+    const d = toBeijingDate(item.created_at);
+    (acc[d] ??= []).push(item);
     return acc;
   }, {});
   const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
