@@ -298,14 +298,13 @@ async function fetchStakingForNetuid(env, netuid) {
 const NEWS_CACHE_KEY = 'taoflow_news_cache';
 const NEWS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-async function getNewsList(env, days = 7) {
+async function getNewsList(env, days = 30) {
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+
   // Try cache first
   const cached = await env.TAOFLOW_KV.get(NEWS_CACHE_KEY, { type: 'json' });
-  if (cached && Date.now() - cached.ts < NEWS_CACHE_TTL && cached.days >= days) {
-    const cutoff = new Date();
-    cutoff.setUTCDate(cutoff.getUTCDate() - days);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
-    return cached.data.filter(n => n.date >= cutoffStr);
+  if (cached && Date.now() - cached.ts < NEWS_CACHE_TTL) {
+    return cached.data.filter(n => n.created_at >= cutoff);
   }
 
   // Single list call for all news keys
@@ -314,21 +313,17 @@ async function getNewsList(env, days = 7) {
     listed.keys.map(async ({ name }) => {
       const value = await env.TAOFLOW_KV.get(name, { type: 'json' });
       if (!value) return null;
-      const date = name.split(':')[1] || '';
-      return { key: name, date, ...value };
+      return { key: name, ...value };
     })
   );
 
   const sorted = results.filter(Boolean)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  // Write cache (store 30 days, filter on read)
-  await env.TAOFLOW_KV.put(NEWS_CACHE_KEY, JSON.stringify({ data: sorted, ts: Date.now(), days: 30 }));
+  // Write cache (store all, filter on read)
+  await env.TAOFLOW_KV.put(NEWS_CACHE_KEY, JSON.stringify({ data: sorted, ts: Date.now() }));
 
-  const cutoff = new Date();
-  cutoff.setUTCDate(cutoff.getUTCDate() - days);
-  const cutoffStr = cutoff.toISOString().split('T')[0];
-  return sorted.filter(n => n.date >= cutoffStr);
+  return sorted.filter(n => n.created_at >= cutoff);
 }
 
 // ─── Worker handlers ─────────────────────────────────────────────────────────

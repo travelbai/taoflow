@@ -476,19 +476,28 @@ def main():
     tweets = fetch_tweets()
     print(f"抓取到 {len(tweets)} 条子网推文")
 
+    # 去重：获取 KV 中已有的 tid hash，跳过已抓取的推文
+    existing_keys = kv_list("news:")
+    existing_hashes = {k.split(":")[-1] for k in existing_keys if k.count(":") >= 2}
+
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    saved = 0
+    saved, skipped = 0, 0
 
     for i, tweet in enumerate(tweets):
         if not rate_limiter.can_continue():
             break
+        tid_hash = hashlib.md5(tweet['tid'].encode()).hexdigest()[:6]
+        if tid_hash in existing_hashes:
+            skipped += 1
+            print(f"[{i+1}/{len(tweets)}] 跳过 {tweet['subnet']}（已存在）")
+            continue
         print(f"[{i+1}/{len(tweets)}] 处理 {tweet['subnet']}...")
         result = rewrite(tweet["text"])
         if not result:
             continue
         title, body = result
 
-        key = f"news:{today}:{hashlib.md5(tweet['tid'].encode()).hexdigest()[:6]}"
+        key = f"news:{today}:{tid_hash}"
         kv_put(key, {
             "subnet":     tweet["subnet"],
             "title":      title,
@@ -506,7 +515,7 @@ def main():
         if len(parts) >= 2 and parts[1] < cutoff_date:
             kv_delete(key)
 
-    print(f"完成，共保存 {saved} 条快讯")
+    print(f"完成，共保存 {saved} 条快讯，跳过 {skipped} 条重复")
 
 if __name__ == "__main__":
     main()
