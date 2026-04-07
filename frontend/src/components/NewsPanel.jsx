@@ -17,7 +17,7 @@ const toDateLabel = dateStr =>
 
 const S = {
   title: {
-    fontWeight: 600, fontSize: 16, color: '#16a34a', lineHeight: '26px',
+    fontWeight: 400, fontSize: 16, color: '#16a34a', lineHeight: '26px',
     letterSpacing: '-0.01em',
   },
   body: {
@@ -107,10 +107,12 @@ export default function NewsPanel({ onTabClick }) {
             {items.map((item, idx) => {
               if (item.type === 'separator') {
                 return (
-                  <div key={`sep-${item.date}`} className="flex items-center gap-4" style={{ padding: '24px 0' }}>
-                    <div className="flex-1 h-px bg-zinc-200" />
-                    <span style={S.dateSep}>{toDateLabel(item.date)}</span>
-                    <div className="flex-1 h-px bg-zinc-200" />
+                  <div key={`sep-${item.date}`} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '28px 0 20px' }}>
+                    <div style={{ flex: 1, height: '0.5px', background: 'var(--color-border-tertiary)' }} />
+                    <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', letterSpacing: '0.08em', fontWeight: 400 }}>
+                      {toDateLabel(item.date)}
+                    </span>
+                    <div style={{ flex: 1, height: '0.5px', background: 'var(--color-border-tertiary)' }} />
                   </div>
                 );
               }
