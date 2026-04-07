@@ -21,10 +21,10 @@ const S = {
     letterSpacing: '-0.01em',
   },
   body: {
-    fontSize: 14.5, color: '#52525b', lineHeight: '28px', marginTop: 24,
+    fontSize: 14.5, color: '#52525b', lineHeight: '28px', marginTop: 12,
   },
   link: {
-    fontSize: 13, color: '#a1a1aa', marginTop: 24, display: 'inline-block',
+    fontSize: 13, color: '#a1a1aa', marginTop: 12, display: 'inline-block',
     transition: 'color 0.15s',
   },
   dot: {
@@ -107,7 +107,7 @@ export default function NewsPanel({ onTabClick }) {
             {items.map((item, idx) => {
               if (item.type === 'separator') {
                 return (
-                  <div key={`sep-${item.date}`} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '8px 0', marginLeft: 26 }}>
+                  <div key={`sep-${item.date}`} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', marginLeft: 26 }}>
                     <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e5e5' }} />
                     <span style={{ fontSize: '12px', color: '#aaa', letterSpacing: '0.06em', fontWeight: 400, whiteSpace: 'nowrap' }}>
                       {toDateLabel(item.date)}
@@ -128,7 +128,7 @@ export default function NewsPanel({ onTabClick }) {
                   </div>
 
                   {/* Content */}
-                  <div style={{ flex: 1, paddingBottom: 20 }}>
+                  <div style={{ flex: 1, paddingBottom: 12 }}>
                     {/* Meta + Title in one line */}
                     <div className="flex items-baseline flex-wrap" style={{ gap: '0 10px' }}>
                       <span style={S.time}>{toBeijingTime(item.created_at)}</span>
