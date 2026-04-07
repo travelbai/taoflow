@@ -21,7 +21,7 @@ const S = {
     letterSpacing: '-0.01em',
   },
   body: {
-    fontSize: 14.5, color: '#52525b', lineHeight: '28px', marginTop: 12,
+    fontSize: 14.5, color: '#52525b', lineHeight: '28px', marginTop: 20,
   },
   link: {
     fontSize: 13, color: '#a1a1aa', marginTop: 12, display: 'inline-block',
