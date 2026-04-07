@@ -480,12 +480,13 @@ def main():
     tweets = fetch_tweets()
     print(f"抓取到 {len(tweets)} 条子网推文")
 
-    # 去重：获取 KV 中已有的 tid hash，跳过已抓取的推文
-    existing_keys = kv_list("news:")
-    existing_hashes = {k.split(":")[-1] for k in existing_keys if k.count(":") >= 2}
+    # 从汇总数据去重
+    existing_news = kv_get("taoflow_news_all") or []
+    existing_hashes = {item["key"].split(":")[-1] for item in existing_news if "key" in item}
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     saved, skipped = 0, 0
+    new_items = []
 
     for i, tweet in enumerate(tweets):
         if not rate_limiter.can_continue():
@@ -501,8 +502,8 @@ def main():
             continue
         title, body = result
 
-        key = f"news:{today}:{tid_hash}"
-        kv_put(key, {
+        new_items.append({
+            "key":        f"news:{today}:{tid_hash}",
             "subnet":     tweet["subnet"],
             "title":      title,
             "content":    body,
@@ -512,27 +513,19 @@ def main():
         saved += 1
         print(f"✓ [{tweet['subnet']}] {title} | {body[:30]}...")
 
-    # 清理超过30天的过期数据
-    cutoff_date = (datetime.now(timezone.utc) - timedelta(days=RETAIN_DAYS)).strftime("%Y-%m-%d")
-    all_keys = kv_list("news:")
-    for key in all_keys:
-        parts = key.split(":")
-        if len(parts) >= 2 and parts[1] < cutoff_date:
-            kv_delete(key)
-            all_keys.remove(key)
-
-    # 构建汇总数据写入 taoflow_news_all，Worker 直接读取这一个 key
-    print("构建快讯汇总...")
-    all_news = []
-    for key in all_keys:
-        if key == "taoflow_news_cache":
-            continue
-        value = kv_get(key)
-        if value:
-            all_news.append({"key": key, **value})
+    # 合并新旧数据，清理超过30天的过期条目
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=RETAIN_DAYS)).isoformat()
+    all_news = [n for n in existing_news + new_items if n.get("created_at", "") >= cutoff]
     all_news.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     kv_put("taoflow_news_all", all_news)
     print(f"汇总写入完成，共 {len(all_news)} 条")
+
+    # 删除单条 news: key，只保留汇总
+    old_keys = kv_list("news:")
+    if old_keys:
+        for key in old_keys:
+            kv_delete(key)
+        print(f"已清理 {len(old_keys)} 个单条 key")
 
     print(f"完成，共保存 {saved} 条快讯，跳过 {skipped} 条重复")
 
