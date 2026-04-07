@@ -44,11 +44,6 @@ const S = {
     letterSpacing: '0.03em', whiteSpace: 'nowrap', flexShrink: 0,
     fontWeight: 600, border: '1px solid rgba(34,197,94,0.15)',
   },
-  dateSep: {
-    fontSize: 12, color: '#a1a1aa', fontFamily: 'monospace',
-    letterSpacing: '0.12em', textTransform: 'uppercase', whiteSpace: 'nowrap',
-    fontWeight: 500,
-  },
 };
 
 export default function NewsPanel({ onTabClick }) {

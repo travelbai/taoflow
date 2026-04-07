@@ -353,7 +353,7 @@ export default {
 
     // News endpoint — fetch X-scraped subnet news from KV, up to 30 days
     if (pathname === '/api/news') {
-      const days = Math.min(parseInt(searchParams.get('days') ?? '7', 10), 30);
+      const days = Math.min(parseInt(searchParams.get('days') ?? '30', 10), 30);
       const news = await getNewsList(env, days);
       return new Response(JSON.stringify(news), {
         headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' },
