@@ -426,6 +426,7 @@ export default function App() {
                 <col className="w-[180px]" />
                 <col className="w-[120px]" />
                 <col className="w-[100px] hidden md:table-column" />
+                <col className="w-[90px]" />
                 <col className="w-[100px]" />
                 <col className="w-[100px]" />
                 <col className="w-[100px] hidden md:table-column" />
@@ -443,6 +444,9 @@ export default function App() {
                   </th>
                   <th className="px-6 py-4 font-normal text-center cursor-pointer hidden md:table-cell" onClick={() => handleSort('emission')}>
                     <span className="relative inline-flex">Emission <SortIcon col="emission" /></span>
+                  </th>
+                  <th className="px-4 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort('priceChange')}>
+                    <span className="relative inline-flex">24H% <SortIcon col="priceChange" /></span>
                   </th>
                   <th className="px-4 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort('netFlow4H')}>
                     <span className="relative inline-flex">Flow 4H <SortIcon col="netFlow4H" /></span>
@@ -465,6 +469,7 @@ export default function App() {
                   <th className="px-4 py-3.5 font-semibold text-zinc-800 text-xs tracking-widest uppercase">Total</th>
                   <th className="px-6 py-3.5"></th>
                   <th className="px-6 py-3.5 hidden md:table-cell"></th>
+                  <th className="px-4 py-3.5"></th>
                   {['netFlow4H', 'netFlow24H', 'netFlow7D', 'netFlow1M'].map((key, i) => {
                     const val = totals[key];
                     return (
@@ -501,16 +506,14 @@ export default function App() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-2 text-center font-mono">
-                        <div className="flex flex-col items-center gap-0.5">
-                          <span className="text-zinc-900 font-medium">τ{subnet.price.toFixed(5)}</span>
-                          <span className={`text-[10px] ${subnet.priceChange > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {subnet.priceChange > 0 ? '+' : ''}{subnet.priceChange}%
-                          </span>
-                        </div>
+                      <td className="px-6 py-2 text-center font-mono text-zinc-900 font-medium">
+                        τ{subnet.price.toFixed(5)}
                       </td>
                       <td className="px-6 py-2 text-center font-mono text-zinc-900 hidden md:table-cell">
                         {subnet.emission.toFixed(2)}%
+                      </td>
+                      <td className={`px-4 py-2 text-center font-mono text-xs ${subnet.priceChange > 0 ? 'text-green-600' : subnet.priceChange < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
+                        {subnet.priceChange > 0 ? '+' : ''}{subnet.priceChange}%
                       </td>
                       {['netFlow4H', 'netFlow24H', 'netFlow7D', 'netFlow1M'].map((key, i) => {
                         const val = subnet[key] ?? 0;
