@@ -432,7 +432,7 @@ export default function App() {
                 <col className="w-[85px] hidden md:table-column" />
                 <col className="w-[85px] hidden md:table-column" />
                 <col className="w-[100px] hidden md:table-column" />
-                <col className="w-[100px]" />
+                <col className="w-[80px]" />
               </colgroup>
               <thead className="text-xs text-zinc-600 tracking-widest sticky top-0 z-10">
                 <tr className="bg-white border-b border-zinc-200">
