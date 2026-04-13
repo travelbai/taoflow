@@ -52,10 +52,13 @@ export default function NewsPanel({ onTabClick }) {
 
   useEffect(() => {
     if (!API_URL) { setLoading(false); return; }
-    fetch(`${API_URL}/api/news?days=30`)
+    const load = () => fetch(`${API_URL}/api/news?days=30`)
       .then(r => r.json())
-      .then(data => { setNews(Array.isArray(data) ? data : []); setLoading(false); })
+      .then(data => { setNews(Array.isArray(data) ? data : []); setError(null); setLoading(false); })
       .catch(() => { setError('加载失败'); setLoading(false); });
+    load();
+    const id = setInterval(load, 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const grouped = news.reduce((acc, item) => {
