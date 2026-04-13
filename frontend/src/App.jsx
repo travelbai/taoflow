@@ -523,13 +523,13 @@ export default function App() {
                           </td>
                         );
                       })}
-                      <td className="px-2 py-3 text-center font-mono text-xs text-zinc-700 hidden md:table-cell whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1">
+                      <td className="px-2 py-3 text-center font-mono text-xs text-zinc-700 hidden md:table-cell">
+                        <div className="flex flex-col items-center gap-0.5">
                           {formatTVL(subnet.tvlUsd)}
                           {subnet.tvlUsd > 0 && subnet.tvlUsd < 500000 && (
                             <span className="text-[9px] leading-none border border-red-200 text-red-500 bg-red-50 px-1 py-0.5 uppercase tracking-widest">Low</span>
                           )}
-                        </span>
+                        </div>
                       </td>
                       <td className="px-2 py-3 text-center">
                         {subnet.signal === 'in' ? (
