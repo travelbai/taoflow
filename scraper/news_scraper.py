@@ -174,14 +174,13 @@ KOL_ACCOUNTS = {"const_reborn"}
 # 子网名称反向索引：名称(小写) → 子网标签，用于 KOL 推文匹配
 SUBNET_NAME_LOOKUP = {}
 for _label in SUBNET_ACCOUNTS.values():
-    # "SN65 TPN" → name="TPN", number="65"
+    # "SN65 TPN" → name="TPN"
     parts = _label.split(" ", 1)
     if len(parts) == 2:
-        sn_num, sn_name = parts
-        SUBNET_NAME_LOOKUP[sn_name.lower()] = _label
+        SUBNET_NAME_LOOKUP[parts[1].lower()] = _label
 
 # ── 网络检测（开机后等待网络就绪）───────────────────────────────
-def wait_for_network(retries=5, interval=30):
+def wait_for_network(retries=20, interval=30):
     for i in range(retries):
         try:
             requests.get("https://x.com", timeout=10)
@@ -234,8 +233,10 @@ def call_gemini(tweet_text):
     prompt = PROMPT.replace("{text}", tweet_text)
     resp = requests.post(
         GEMINI_API_URL,
-        params={"key": cfg["GEMINI_API_KEY"]},
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": cfg["GEMINI_API_KEY"],
+        },
         json={
             "system_instruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
             "contents": [{"parts": [{"text": prompt}]}],
@@ -313,27 +314,28 @@ def rewrite(text, subnet="", has_urls=False):
     # RPM 等待
     rate_limiter.wait_for_slot()
 
-    try:
-        result, tokens = call_gemini(safe_content)
-        rate_limiter.record_tokens(tokens or est)
-        rate_limiter.record_call()
-        cleaned = _clean_result(result)
-        return cleaned
-    except Exception as e:
-        if "429" in str(e):
-            print("  429 限速，等待 60 秒后重试...")
-            time.sleep(60)
-            rate_limiter.wait_for_slot()
-            try:
-                result, tokens = call_gemini(safe_content)
-                rate_limiter.record_tokens(tokens or est)
-                rate_limiter.record_call()
-                return _clean_result(result)
-            except Exception as e2:
-                print(f"  重试仍失败: {e2}")
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            result, tokens = call_gemini(safe_content)
+            rate_limiter.record_tokens(tokens or est)
+            rate_limiter.record_call()
+            return _clean_result(result)
+        except Exception as e:
+            err = str(e)
+            if "429" in err:
+                print(f"  429 限速，等待 60 秒后重试（{attempt+1}/{max_retries}）...")
+                time.sleep(60)
+            elif "503" in err or "502" in err or "500" in err:
+                wait = 5 * (attempt + 1)
+                print(f"  Gemini {err[:3]} 服务暂不可用，{wait}秒后重试（{attempt+1}/{max_retries}）...")
+                time.sleep(wait)
+            else:
+                print(f"Gemini 错误: {e}")
                 return None
-        print(f"Gemini 错误: {e}")
-        return None
+            rate_limiter.wait_for_slot()
+    print(f"  Gemini 重试 {max_retries} 次仍失败，跳过")
+    return None
 
 # ── X 列表抓取 ───────────────────────────────────────────────────
 GRAPHQL_FEATURES = {'rweb_video_screen_enabled':False,'profile_label_improvements_pcf_label_in_post_enabled':True,'responsive_web_profile_redirect_enabled':False,'rweb_tipjar_consumption_enabled':False,'verified_phone_label_enabled':False,'creator_subscriptions_tweet_preview_api_enabled':True,'responsive_web_graphql_timeline_navigation_enabled':True,'responsive_web_graphql_skip_user_profile_image_extensions_enabled':False,'premium_content_api_read_enabled':False,'communities_web_enable_tweet_community_results_fetch':True,'c9s_tweet_anatomy_moderator_badge_enabled':True,'responsive_web_grok_analyze_button_fetch_trends_enabled':False,'responsive_web_grok_analyze_post_followups_enabled':True,'responsive_web_jetfuel_frame':True,'responsive_web_grok_share_attachment_enabled':True,'responsive_web_grok_annotations_enabled':True,'articles_preview_enabled':True,'responsive_web_edit_tweet_api_enabled':True,'graphql_is_translatable_rweb_tweet_is_translatable_enabled':True,'view_counts_everywhere_api_enabled':True,'longform_notetweets_consumption_enabled':True,'responsive_web_twitter_article_tweet_consumption_enabled':True,'content_disclosure_indicator_enabled':True,'content_disclosure_ai_generated_indicator_enabled':True,'responsive_web_grok_show_grok_translated_post':False,'responsive_web_grok_analysis_button_from_backend':True,'post_ctas_fetch_enabled':False,'freedom_of_speech_not_reach_fetch_enabled':True,'standardized_nudges_misinfo':True,'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled':True,'longform_notetweets_rich_text_read_enabled':True,'longform_notetweets_inline_media_enabled':False,'responsive_web_grok_image_annotation_enabled':True,'responsive_web_grok_imagine_annotation_enabled':True,'responsive_web_grok_community_note_auto_translation_is_enabled':False,'responsive_web_enhance_cards_enabled':False}
@@ -500,8 +502,9 @@ def main():
     for i, tweet in enumerate(tweets):
         if not rate_limiter.can_continue():
             break
-        tid_hash = hashlib.md5(tweet['tid'].encode()).hexdigest()[:6]
-        if tid_hash in existing_hashes:
+        tid_hash = hashlib.md5(tweet['tid'].encode()).hexdigest()[:10]
+        # Backward compat: old entries used 6-char hashes; match full or legacy prefix
+        if tid_hash in existing_hashes or tid_hash[:6] in existing_hashes:
             skipped += 1
             print(f"[{i+1}/{len(tweets)}] 跳过 {tweet['subnet']}（已存在）")
             continue

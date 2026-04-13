@@ -45,7 +45,7 @@ function useData(url) {
     }
   }, [fetchData, url]);
 
-  return { data, loading, error, updatedAt, refetch: fetchData };
+  return { data, loading, error, updatedAt };
 }
 
 function formatAPY(v) {
