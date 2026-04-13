@@ -57,8 +57,10 @@ export default function NewsPanel({ onTabClick }) {
       .then(data => { setNews(Array.isArray(data) ? data : []); setError(null); setLoading(false); })
       .catch(() => { setError('加载失败'); setLoading(false); });
     load();
-    const id = setInterval(load, 60_000);
-    return () => clearInterval(id);
+    // Refetch only when the user actually returns to the tab — no idle polling
+    const onVis = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
   const grouped = news.reduce((acc, item) => {

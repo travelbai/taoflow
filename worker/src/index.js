@@ -351,7 +351,7 @@ export default {
       const days = Math.min(parseInt(searchParams.get('days') ?? '30', 10), 30);
       const news = await getNewsList(env, days);
       return new Response(JSON.stringify(news), {
-        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30' },
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
       });
     }
 
