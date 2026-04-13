@@ -491,7 +491,7 @@ export default function App() {
                     <tr
                       key={subnet.id}
                       onClick={() => setSelectedId(subnet.id)}
-                      className={`cursor-pointer ${subnet.signal === 'in' ? 'bg-green-50 hover:bg-green-100' : isSelected ? 'bg-zinc-100' : 'hover:bg-zinc-50'}`}
+                      className={`cursor-pointer h-[52px] ${subnet.signal === 'in' ? 'bg-green-50 hover:bg-green-100' : isSelected ? 'bg-zinc-100' : 'hover:bg-zinc-50'}`}
                     >
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-1.5">
@@ -523,11 +523,11 @@ export default function App() {
                           </td>
                         );
                       })}
-                      <td className="px-2 py-3 text-center font-mono text-xs text-zinc-700 hidden md:table-cell">
-                        <div className="flex flex-col items-center gap-0.5">
-                          {formatTVL(subnet.tvlUsd)}
+                      <td className="px-2 py-2 text-center font-mono text-xs text-zinc-700 hidden md:table-cell">
+                        <div className="flex flex-col items-center gap-0.5 leading-tight">
+                          <span>{formatTVL(subnet.tvlUsd)}</span>
                           {subnet.tvlUsd > 0 && subnet.tvlUsd < 500000 && (
-                            <span className="text-[9px] leading-none border border-red-200 text-red-500 bg-red-50 px-1 py-0.5 uppercase tracking-widest">Low</span>
+                            <span className="text-[8px] leading-none border border-red-200 text-red-500 bg-red-50 px-1 py-[1px] uppercase tracking-widest">Low</span>
                           )}
                         </div>
                       </td>
