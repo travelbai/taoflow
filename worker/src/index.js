@@ -220,6 +220,10 @@ async function refresh(env) {
   ]);
 
   const recycleFee = Math.round(rao(regCostResp.data?.[0]?.subnet_registration_cost ?? regCostResp.data?.[0]?.registration_cost ?? 0));
+  const prevFee = cached.meta?.recycleFee ?? 0;
+  const prevUp = cached.meta?.recycleFeeUp ?? false;
+  // Hold last direction across plateaus so the indicator reflects the trend, not just per-refresh delta
+  const recycleFeeUp = recycleFee > prevFee ? true : recycleFee < prevFee ? false : prevUp;
 
   const timeline = (recentRegsResp.data ?? []).map(r => ({
     type: 'registration',
@@ -236,7 +240,7 @@ async function refresh(env) {
     meta: {
       ...cached.meta,
       recycleFee,
-      recycleFeeUp: recycleFee > (cached.meta?.recycleFee ?? 0),
+      recycleFeeUp,
       updatedAt: cached.meta.updatedAt, // keep Core's timestamp
     },
   };

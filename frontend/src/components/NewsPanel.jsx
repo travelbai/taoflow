@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { API_URL } from '../config';
 
 const toBeijingTime = iso =>
   new Date(iso).toLocaleTimeString('zh-CN', {
@@ -52,8 +51,8 @@ export default function NewsPanel({ onTabClick }) {
   const [error, setError]     = useState(null);
 
   useEffect(() => {
-    if (!API_BASE) { setLoading(false); return; }
-    fetch(`${API_BASE}/api/news?days=30`)
+    if (!API_URL) { setLoading(false); return; }
+    fetch(`${API_URL}/api/news?days=30`)
       .then(r => r.json())
       .then(data => { setNews(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => { setError('加载失败'); setLoading(false); });
