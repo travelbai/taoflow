@@ -423,65 +423,65 @@ export default function App() {
           <div className="overflow-x-auto max-h-[720px] overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
             <table className="w-full text-sm text-left table-fixed">
               <colgroup>
-                <col className="w-[180px]" />
-                <col className="w-[120px]" />
-                <col className="w-[100px] hidden md:table-column" />
-                <col className="w-[90px]" />
-                <col className="w-[100px]" />
-                <col className="w-[100px]" />
-                <col className="w-[100px] hidden md:table-column" />
-                <col className="w-[100px] hidden md:table-column" />
+                <col className="w-[150px]" />
+                <col className="w-[95px]" />
+                <col className="w-[80px] hidden md:table-column" />
+                <col className="w-[70px]" />
+                <col className="w-[85px]" />
+                <col className="w-[85px]" />
+                <col className="w-[85px] hidden md:table-column" />
+                <col className="w-[85px] hidden md:table-column" />
                 <col className="w-[100px] hidden md:table-column" />
                 <col className="w-[100px]" />
               </colgroup>
               <thead className="text-xs text-zinc-600 tracking-widest sticky top-0 z-10">
                 <tr className="bg-white border-b border-zinc-200">
-                  <th className="px-4 py-4 font-normal cursor-pointer" onClick={() => handleSort('id')}>
+                  <th className="px-3 py-4 font-normal cursor-pointer" onClick={() => handleSort('id')}>
                     <span className="relative inline-flex">Subnet <SortIcon col="id" /></span>
                   </th>
-                  <th className="px-6 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort('price')}>
+                  <th className="px-2 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort('price')}>
                     <span className="relative inline-flex">Price <SortIcon col="price" /></span>
                   </th>
-                  <th className="px-6 py-4 font-normal text-center cursor-pointer hidden md:table-cell" onClick={() => handleSort('emission')}>
+                  <th className="px-2 py-4 font-normal text-center cursor-pointer hidden md:table-cell" onClick={() => handleSort('emission')}>
                     <span className="relative inline-flex">Emission <SortIcon col="emission" /></span>
                   </th>
-                  <th className="px-4 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort('priceChange')}>
+                  <th className="px-2 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort('priceChange')}>
                     <span className="relative inline-flex">24H% <SortIcon col="priceChange" /></span>
                   </th>
-                  <th className="px-4 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort('netFlow4H')}>
+                  <th className="px-2 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort('netFlow4H')}>
                     <span className="relative inline-flex">Flow 4H <SortIcon col="netFlow4H" /></span>
                   </th>
-                  <th className="px-4 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort('netFlow24H')}>
+                  <th className="px-2 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort('netFlow24H')}>
                     <span className="relative inline-flex">Flow 24H <SortIcon col="netFlow24H" /></span>
                   </th>
-                  <th className="px-4 py-4 font-normal text-center cursor-pointer hidden md:table-cell" onClick={() => handleSort('netFlow7D')}>
+                  <th className="px-2 py-4 font-normal text-center cursor-pointer hidden md:table-cell" onClick={() => handleSort('netFlow7D')}>
                     <span className="relative inline-flex">Flow 7D <SortIcon col="netFlow7D" /></span>
                   </th>
-                  <th className="px-4 py-4 font-normal text-center cursor-pointer hidden md:table-cell" onClick={() => handleSort('netFlow1M')}>
+                  <th className="px-2 py-4 font-normal text-center cursor-pointer hidden md:table-cell" onClick={() => handleSort('netFlow1M')}>
                     <span className="relative inline-flex">Flow 1M <SortIcon col="netFlow1M" /></span>
                   </th>
-                  <th className="px-4 py-4 font-normal text-center cursor-pointer hidden md:table-cell" onClick={() => handleSort('tvlUsd')}>
+                  <th className="px-2 py-4 font-normal text-center cursor-pointer hidden md:table-cell" onClick={() => handleSort('tvlUsd')}>
                     <span className="relative inline-flex">TVL <SortIcon col="tvlUsd" /></span>
                   </th>
-                  <th className="px-6 py-4 font-normal text-center">Signals</th>
+                  <th className="px-2 py-4 font-normal text-center">Signals</th>
                 </tr>
                 <tr className="bg-white border-b border-zinc-200">
-                  <th className="px-4 py-3.5 font-semibold text-zinc-800 text-xs tracking-widest uppercase">Total</th>
-                  <th className="px-6 py-3.5"></th>
-                  <th className="px-6 py-3.5 hidden md:table-cell"></th>
-                  <th className="px-4 py-3.5"></th>
+                  <th className="px-3 py-3.5 font-semibold text-zinc-800 text-xs tracking-widest uppercase">Total</th>
+                  <th className="px-2 py-3.5"></th>
+                  <th className="px-2 py-3.5 hidden md:table-cell"></th>
+                  <th className="px-2 py-3.5"></th>
                   {['netFlow4H', 'netFlow24H', 'netFlow7D', 'netFlow1M'].map((key, i) => {
                     const val = totals[key];
                     return (
-                      <th key={key} className={`px-4 py-3.5 text-center font-mono text-xs font-semibold ${i >= 2 ? 'hidden md:table-cell' : ''} ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
+                      <th key={key} className={`px-2 py-3.5 text-center font-mono text-xs font-semibold ${i >= 2 ? 'hidden md:table-cell' : ''} ${val > 0 ? 'text-green-600' : val < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
                         {val > 0 ? '+' : val < 0 ? '-' : ''}τ{Math.abs(val).toLocaleString()}
                       </th>
                     );
                   })}
-                  <th className="px-4 py-3.5 text-center font-mono text-xs font-semibold text-zinc-800 hidden md:table-cell">
+                  <th className="px-2 py-3.5 text-center font-mono text-xs font-semibold text-zinc-800 hidden md:table-cell">
                     {formatTVL(totals.tvlUsd)}
                   </th>
-                  <th className="px-6 py-3.5"></th>
+                  <th className="px-2 py-3.5"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -493,8 +493,8 @@ export default function App() {
                       onClick={() => setSelectedId(subnet.id)}
                       className={`cursor-pointer ${subnet.signal === 'in' ? 'bg-green-50 hover:bg-green-100' : isSelected ? 'bg-zinc-100' : 'hover:bg-zinc-50'}`}
                     >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1.5">
                           <span className={`font-mono text-xs shrink-0 ${isSelected ? 'text-green-600' : 'text-zinc-400'}`}>
                             SN{subnet.id.toString().padStart(2, '0')}
                           </span>
@@ -506,32 +506,32 @@ export default function App() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-3 text-center font-mono text-zinc-900 font-medium">
+                      <td className="px-2 py-3 text-center font-mono text-zinc-900 font-medium">
                         τ{subnet.price.toFixed(5)}
                       </td>
-                      <td className="px-6 py-3 text-center font-mono text-zinc-900 hidden md:table-cell">
+                      <td className="px-2 py-3 text-center font-mono text-zinc-900 hidden md:table-cell">
                         {subnet.emission.toFixed(2)}%
                       </td>
-                      <td className={`px-4 py-3 text-center font-mono text-xs ${subnet.priceChange > 0 ? 'text-green-600' : subnet.priceChange < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
+                      <td className={`px-2 py-3 text-center font-mono text-xs ${subnet.priceChange > 0 ? 'text-green-600' : subnet.priceChange < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
                         {subnet.priceChange > 0 ? '+' : ''}{subnet.priceChange}%
                       </td>
                       {['netFlow4H', 'netFlow24H', 'netFlow7D', 'netFlow1M'].map((key, i) => {
                         const val = subnet[key] ?? 0;
                         return (
-                          <td key={key} className={`px-4 py-3 text-center font-mono text-xs ${i >= 2 ? 'hidden md:table-cell' : ''} ${val > 0 ? 'text-green-600 font-medium' : val < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
+                          <td key={key} className={`px-2 py-3 text-center font-mono text-xs ${i >= 2 ? 'hidden md:table-cell' : ''} ${val > 0 ? 'text-green-600 font-medium' : val < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
                             {val > 0 ? '+' : val < 0 ? '-' : ''}τ{Math.abs(val).toLocaleString()}
                           </td>
                         );
                       })}
-                      <td className="px-4 py-3 text-center font-mono text-xs text-zinc-700 hidden md:table-cell whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5">
+                      <td className="px-2 py-3 text-center font-mono text-xs text-zinc-700 hidden md:table-cell whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1">
                           {formatTVL(subnet.tvlUsd)}
                           {subnet.tvlUsd > 0 && subnet.tvlUsd < 500000 && (
                             <span className="text-[9px] leading-none border border-red-200 text-red-500 bg-red-50 px-1 py-0.5 uppercase tracking-widest">Low</span>
                           )}
                         </span>
                       </td>
-                      <td className="px-6 py-3 text-center">
+                      <td className="px-2 py-3 text-center">
                         {subnet.signal === 'in' ? (
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-green-50 text-green-600 text-[10px] leading-none font-mono tracking-wider border border-green-200 uppercase">
                             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
