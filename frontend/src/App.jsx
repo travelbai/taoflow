@@ -493,52 +493,52 @@ export default function App() {
                       onClick={() => setSelectedId(subnet.id)}
                       className={`cursor-pointer ${subnet.signal === 'in' ? 'bg-green-50 hover:bg-green-100' : isSelected ? 'bg-zinc-100' : 'hover:bg-zinc-50'}`}
                     >
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className={`font-mono text-xs shrink-0 ${isSelected ? 'text-green-600' : 'text-zinc-400'}`}>
                             SN{subnet.id.toString().padStart(2, '0')}
                           </span>
                           <span className={`font-medium truncate ${subnet.name ? 'text-zinc-700' : 'text-zinc-400'}`}>{subnet.name || 'Unknown'}</span>
                           {subnet.isNew && (
-                            <span className="text-[9px] border border-blue-200 text-blue-600 bg-blue-50 px-1.5 py-0.5 uppercase tracking-widest shrink-0">
+                            <span className="text-[9px] leading-none border border-blue-200 text-blue-600 bg-blue-50 px-1 py-0.5 uppercase tracking-widest shrink-0">
                               New
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-2 text-center font-mono text-zinc-900 font-medium">
+                      <td className="px-6 py-3 text-center font-mono text-zinc-900 font-medium">
                         τ{subnet.price.toFixed(5)}
                       </td>
-                      <td className="px-6 py-2 text-center font-mono text-zinc-900 hidden md:table-cell">
+                      <td className="px-6 py-3 text-center font-mono text-zinc-900 hidden md:table-cell">
                         {subnet.emission.toFixed(2)}%
                       </td>
-                      <td className={`px-4 py-2 text-center font-mono text-xs ${subnet.priceChange > 0 ? 'text-green-600' : subnet.priceChange < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
+                      <td className={`px-4 py-3 text-center font-mono text-xs ${subnet.priceChange > 0 ? 'text-green-600' : subnet.priceChange < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
                         {subnet.priceChange > 0 ? '+' : ''}{subnet.priceChange}%
                       </td>
                       {['netFlow4H', 'netFlow24H', 'netFlow7D', 'netFlow1M'].map((key, i) => {
                         const val = subnet[key] ?? 0;
                         return (
-                          <td key={key} className={`px-4 py-2 text-center font-mono text-xs ${i >= 2 ? 'hidden md:table-cell' : ''} ${val > 0 ? 'text-green-600 font-medium' : val < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
+                          <td key={key} className={`px-4 py-3 text-center font-mono text-xs ${i >= 2 ? 'hidden md:table-cell' : ''} ${val > 0 ? 'text-green-600 font-medium' : val < 0 ? 'text-red-500' : 'text-zinc-400'}`}>
                             {val > 0 ? '+' : val < 0 ? '-' : ''}τ{Math.abs(val).toLocaleString()}
                           </td>
                         );
                       })}
-                      <td className="px-4 py-2 text-center font-mono text-xs text-zinc-700 hidden md:table-cell">
-                        <div className="flex flex-col items-center gap-0.5">
+                      <td className="px-4 py-3 text-center font-mono text-xs text-zinc-700 hidden md:table-cell whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5">
                           {formatTVL(subnet.tvlUsd)}
                           {subnet.tvlUsd > 0 && subnet.tvlUsd < 500000 && (
-                            <span className="text-[9px] border border-red-200 text-red-500 bg-red-50 px-1.5 py-0.5 uppercase tracking-widest">Low</span>
+                            <span className="text-[9px] leading-none border border-red-200 text-red-500 bg-red-50 px-1 py-0.5 uppercase tracking-widest">Low</span>
                           )}
-                        </div>
+                        </span>
                       </td>
-                      <td className="px-6 py-2 text-center">
+                      <td className="px-6 py-3 text-center">
                         {subnet.signal === 'in' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-600 text-[10px] font-mono tracking-wider border border-green-200 uppercase">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-green-50 text-green-600 text-[10px] leading-none font-mono tracking-wider border border-green-200 uppercase">
                             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                             Whale
                           </span>
                         ) : subnet.signal === 'out' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-red-50 text-red-600 text-[10px] font-mono tracking-wider border border-red-100 uppercase">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-red-50 text-red-600 text-[10px] leading-none font-mono tracking-wider border border-red-100 uppercase">
                             <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                             撤出
                           </span>
