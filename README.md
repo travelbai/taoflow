@@ -94,7 +94,7 @@ wrangler kv:namespace create TAOFLOW_KV --preview
 ### 4. 发布 Worker
 
 ```bash
-wrangler deploy
+wrangler publish
 ```
 
 成功后输出 Worker URL，格式为：
@@ -264,7 +264,7 @@ Access-Control-Allow-Methods: GET, OPTIONS
 Access-Control-Allow-Headers: Content-Type
 ```
 
-如需增加站点来源，请修改该数组后重新部署 Worker：
+如需增加站点来源，请修改该数组后重新发布 Worker：
 
 ```js
 // worker/src/index.js
