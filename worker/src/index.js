@@ -61,7 +61,68 @@ const WHALE_THRESHOLD = 1000; // TAO
 const WHALE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const NEW_SUBNET_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-function buildSubnetList(subnets, pools, flows4h, prevSignals = {}, whaleFlows = {}, taoPrice = 0) {
+// Net flows are calculated from pool total_tao snapshots.  Taostats no longer
+// supplies its former net_flow_* fields, so every window uses this same source.
+const FLOW_WINDOWS = [
+  { field: 'netFlow4H',  seconds: 4 * 3600,      maxDrift: 60 * 60 },
+  { field: 'netFlow24H', seconds: 24 * 3600,     maxDrift: 2 * 3600 },
+  { field: 'netFlow7D',  seconds: 7 * 86400,     maxDrift: 12 * 3600 },
+  { field: 'netFlow1M',  seconds: 30 * 86400,    maxDrift: 2 * 86400 },
+];
+
+// Keep fine-grained recent snapshots for 4H accuracy, then progressively
+// downsample older data. This retains enough baselines for all flow windows
+// without growing the single KV value to 30 days of 20-minute snapshots.
+const SNAPSHOT_RETENTION = [
+  { until: 6 * 3600,      interval: 20 * 60 },
+  { until: 2 * 86400,     interval: 60 * 60 },
+  { until: 9 * 86400,     interval: 6 * 3600 },
+  { until: 32 * 86400,    interval: 24 * 3600 },
+];
+
+function compactTaoHistory(history, now) {
+  const snapshots = Array.isArray(history)
+    ? history.filter(entry => Number.isFinite(entry?.ts) && entry.taoMap && now >= entry.ts)
+    : [];
+  const selected = new Map();
+
+  // Work newest-first so each time bucket keeps its latest real snapshot.
+  snapshots.sort((a, b) => b.ts - a.ts);
+  for (const entry of snapshots) {
+    const age = now - entry.ts;
+    const tier = SNAPSHOT_RETENTION.find(rule => age <= rule.until);
+    if (!tier) continue;
+    const bucket = `${tier.interval}:${Math.floor(entry.ts / tier.interval)}`;
+    if (!selected.has(bucket)) selected.set(bucket, entry);
+  }
+  return [...selected.values()].sort((a, b) => a.ts - b.ts);
+}
+
+function calculateFlows(currentTaoMap, history, now) {
+  const flows = {};
+  for (const window of FLOW_WINDOWS) {
+    const target = now - window.seconds;
+    let baseline = null;
+    for (const snapshot of history) {
+      const distance = Math.abs(snapshot.ts - target);
+      if (!baseline || distance < baseline.distance) baseline = { snapshot, distance };
+    }
+
+    // Do not label a partial history as a full time-window flow. During the
+    // first month after deployment these fields remain 0 until a valid baseline exists.
+    if (!baseline || baseline.distance > window.maxDrift) continue;
+    for (const [netuid, current] of Object.entries(currentTaoMap)) {
+      const previous = baseline.snapshot.taoMap[netuid];
+      if (previous !== undefined) {
+        if (!flows[netuid]) flows[netuid] = {};
+        flows[netuid][window.field] = (current - previous) / RAO;
+      }
+    }
+  }
+  return flows;
+}
+
+function buildSubnetList(subnets, pools, flows, prevSignals = {}, whaleFlows = {}, taoPrice = 0) {
   const poolMap = Object.fromEntries(pools.map(p => [p.netuid, p]));
   const activeSubnets = subnets.filter(s => s.netuid > 0 && s.subtoken_enabled === true);
   const now = Date.now();
@@ -74,7 +135,7 @@ function buildSubnetList(subnets, pools, flows4h, prevSignals = {}, whaleFlows =
     const emissionPct = Number(s.emission ?? 0) / BLOCK_EMISSION_RAO * 100;
     const taoIn = Number(pool.total_tao ?? 0) / RAO;
     const tvlUsd = +(taoIn * taoPrice).toFixed(2);
-    const net4h = Math.round(flows4h[s.netuid] ?? 0);
+    const subnetFlows = flows[s.netuid] ?? {};
 
     // Whale signal: based on large single-wallet trades (>1000 TAO) in last 24H
     const prev = prevSignals[s.netuid];
@@ -99,10 +160,10 @@ function buildSubnetList(subnets, pools, flows4h, prevSignals = {}, whaleFlows =
       name: (pool.name && pool.name !== 'Unknown' ? pool.name : ''),
       price: +price.toFixed(8),
       priceChange: +priceChange.toFixed(2),
-      netFlow4H:  net4h,
-      netFlow24H: Math.round(rao(s.net_flow_1_day  ?? 0)),
-      netFlow7D:  Math.round(rao(s.net_flow_7_days  ?? 0)),
-      netFlow1M:  Math.round(rao(s.net_flow_30_days ?? 0)),
+      netFlow4H:  Math.round(subnetFlows.netFlow4H  ?? 0),
+      netFlow24H: Math.round(subnetFlows.netFlow24H ?? 0),
+      netFlow7D:  Math.round(subnetFlows.netFlow7D  ?? 0),
+      netFlow1M:  Math.round(subnetFlows.netFlow1M  ?? 0),
       emission: +emissionPct.toFixed(2),
       tvlUsd,
       isNew: s.registered_at ? (now - new Date(s.registered_at).getTime() < NEW_SUBNET_MS) : false,
@@ -113,7 +174,7 @@ function buildSubnetList(subnets, pools, flows4h, prevSignals = {}, whaleFlows =
   return { subnets: result, signals: newSignals };
 }
 
-// Core refresh (every 20 min): subnets + pools + 4H flow (snapshot-based) + whale trades
+// Core refresh (every 20 min): subnets + pools + snapshot-based flows + whale trades
 async function refreshCore(env) {
   const now = Math.floor(Date.now() / 1000);
 
@@ -140,29 +201,13 @@ async function refreshCore(env) {
     if (p.netuid != null) currentTaoMap[p.netuid] = Number(p.total_tao ?? 0);
   }
 
-  // Prune history older than 5 hours, then find baseline closest to 4H ago
-  const history = Array.isArray(taoHistory) ? taoHistory : [];
-  const pruned = history.filter(e => now - e.ts < 18000);
-  const target4h = now - 4 * 3600;
-  let baseline = null;
-  for (const e of pruned) {
-    if (!baseline || Math.abs(e.ts - target4h) < Math.abs(baseline.ts - target4h)) {
-      baseline = e;
-    }
-  }
+  const history = compactTaoHistory(taoHistory, now);
+  const flows = calculateFlows(currentTaoMap, history, now);
 
-  // 4H net flow = current total_tao - baseline total_tao (in TAO)
-  const flows4h = {};
-  if (baseline?.taoMap) {
-    for (const [netuid, curTao] of Object.entries(currentTaoMap)) {
-      const baseTao = baseline.taoMap[netuid];
-      if (baseTao !== undefined) flows4h[netuid] = (curTao - baseTao) / RAO;
-    }
-  }
-
-  // Save updated snapshot history (keep last 16 entries ≈ 5.3h at 20-min intervals)
-  pruned.push({ ts: now, taoMap: currentTaoMap });
-  await env.TAOFLOW_KV.put('taoflow_tao_history', JSON.stringify(pruned.slice(-16)));
+  // Persist the current snapshot after calculating, then compact it into
+  // progressively coarser buckets for the 4H/24H/7D/1M baselines.
+  const updatedHistory = compactTaoHistory([...history, { ts: now, taoMap: currentTaoMap }], now);
+  await env.TAOFLOW_KV.put('taoflow_tao_history', JSON.stringify(updatedHistory));
 
   await sleep(500);
 
@@ -184,7 +229,7 @@ async function refreshCore(env) {
     if (isSell) whaleFlows[netuid].out += taoVal;
   }
 
-  const { subnets: subnetList, signals } = buildSubnetList(subnets, pools, flows4h, prevSignals, whaleFlows, taoPrice);
+  const { subnets: subnetList, signals } = buildSubnetList(subnets, pools, flows, prevSignals, whaleFlows, taoPrice);
   const totalSlots = subnets.filter(s => s.netuid > 0).length;
 
   const data = {
