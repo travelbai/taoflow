@@ -80,13 +80,13 @@ const WHALE_THRESHOLD = 1000; // TAO
 const WHALE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const NEW_SUBNET_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// Net flows are calculated from Taostats pool total_tao history. Taostats no
+// Net flows are calculated from the same pool total_tao snapshots. Taostats no
 // longer supplies its former net_flow_* fields, so every window shares this source.
 const FLOW_WINDOWS = [
-  { field: 'netFlow4H',  seconds: 4 * 3600,      maxDrift: 60 * 60,      frequency: 'by_hour', queryPadding: 45 * 60 },
-  { field: 'netFlow24H', seconds: 24 * 3600,     maxDrift: 2 * 3600,     frequency: 'by_hour', queryPadding: 45 * 60 },
-  { field: 'netFlow7D',  seconds: 7 * 86400,     maxDrift: 12 * 3600,    frequency: 'by_day',  queryPadding: 18 * 3600 },
-  { field: 'netFlow1M',  seconds: 30 * 86400,    maxDrift: 2 * 86400,    frequency: 'by_day',  queryPadding: 18 * 3600 },
+  { field: 'netFlow4H',  seconds: 4 * 3600,      maxDrift: 60 * 60 },
+  { field: 'netFlow24H', seconds: 24 * 3600,     maxDrift: 2 * 3600 },
+  { field: 'netFlow7D',  seconds: 7 * 86400,     maxDrift: 12 * 3600 },
+  { field: 'netFlow1M',  seconds: 30 * 86400,    maxDrift: 2 * 86400 },
 ];
 
 // Keep fine-grained recent snapshots for 4H accuracy, then progressively
@@ -141,64 +141,6 @@ function calculateFlows(currentTaoMap, history, now) {
   return flows;
 }
 
-function historyTimestampSeconds(record) {
-  if (typeof record?.timestamp === 'number') {
-    return record.timestamp > 1e12 ? Math.floor(record.timestamp / 1000) : record.timestamp;
-  }
-  const parsed = Date.parse(record?.timestamp ?? '');
-  return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : NaN;
-}
-
-// Taostats retains the authoritative pool history, so use it for every flow
-// window instead of waiting 30 days for this Worker to build its own baseline.
-// The local KV snapshots remain a fallback during a temporary history API error.
-async function calculateHistoricalFlows(env, currentTaoMap, now) {
-  const flows = {};
-  await Promise.all(FLOW_WINDOWS.map(async window => {
-    const target = now - window.seconds;
-    let records;
-    try {
-      records = await fetchPages(env, '/dtao/pool/history/v1', {
-        timestamp_start: target - window.queryPadding,
-        timestamp_end: target + window.queryPadding,
-        frequency: window.frequency,
-      }, 4);
-    } catch (error) {
-      console.error(`pool history unavailable for ${window.field}:`, error?.message);
-      return;
-    }
-
-    // The response may include adjacent hourly/daily snapshots. Select the
-    // closest valid baseline independently for each subnet.
-    const baselines = new Map();
-    for (const record of records) {
-      const netuid = record?.netuid;
-      const timestamp = historyTimestampSeconds(record);
-      const totalTao = Number(record?.total_tao);
-      const distance = Math.abs(timestamp - target);
-      if (netuid == null || !Number.isFinite(timestamp) || !Number.isFinite(totalTao) || distance > window.maxDrift) continue;
-      const previous = baselines.get(String(netuid));
-      if (!previous || distance < previous.distance) baselines.set(String(netuid), { totalTao, distance });
-    }
-
-    for (const [netuid, current] of Object.entries(currentTaoMap)) {
-      const baseline = baselines.get(String(netuid));
-      if (!baseline) continue;
-      if (!flows[netuid]) flows[netuid] = {};
-      flows[netuid][window.field] = (current - baseline.totalTao) / RAO;
-    }
-  }));
-  return flows;
-}
-
-function mergeFlows(fallbackFlows, authoritativeFlows) {
-  const merged = { ...fallbackFlows };
-  for (const [netuid, fields] of Object.entries(authoritativeFlows)) {
-    merged[netuid] = { ...(merged[netuid] ?? {}), ...fields };
-  }
-  return merged;
-}
-
 function buildSubnetList(subnets, pools, flows, prevSignals = {}, whaleFlows = {}, taoPrice = 0) {
   const poolMap = Object.fromEntries(pools.map(p => [p.netuid, p]));
   const activeSubnets = subnets.filter(s => s.netuid > 0 && s.subtoken_enabled === true);
@@ -251,7 +193,7 @@ function buildSubnetList(subnets, pools, flows, prevSignals = {}, whaleFlows = {
   return { subnets: result, signals: newSignals };
 }
 
-// Core refresh (every 20 min): subnets + pools + history-based flows + whale trades
+// Core refresh (every 20 min): subnets + pools + snapshot-based flows + whale trades
 async function refreshCore(env) {
   const now = Math.floor(Date.now() / 1000);
 
@@ -279,9 +221,7 @@ async function refreshCore(env) {
   }
 
   const history = compactTaoHistory(taoHistory, now);
-  const localFlows = calculateFlows(currentTaoMap, history, now);
-  const historicalFlows = await calculateHistoricalFlows(env, currentTaoMap, now);
-  const flows = mergeFlows(localFlows, historicalFlows);
+  const flows = calculateFlows(currentTaoMap, history, now);
 
   // Persist the current snapshot after calculating, then compact it into
   // progressively coarser buckets for the 4H/24H/7D/1M baselines.
