@@ -10,6 +10,12 @@ frontend/dist/
 .env
 frontend/.env
 scraper/.env
+scraper/__pycache__/
+scraper/*.log
+scraper/last_kv_sync_failed.json
+
+# Wrangler local development secrets
+worker/.dev.vars
 
 # Wrangler local state
 .wrangler/

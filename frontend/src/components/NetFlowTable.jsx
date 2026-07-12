@@ -7,10 +7,7 @@ export default function NetFlowTable({ subnets, timeline, onNavigate }) {
   const [selectedId, setSelectedId] = useState(null);
   const { sortConfig, handleSort, SortIcon } = useSortable('id', 'asc');
 
-  const selectedSubnet = useMemo(() => {
-    if (!subnets.length) return null;
-    return subnets.find((s) => s.id === selectedId) ?? subnets[0];
-  }, [subnets, selectedId]);
+  const effectiveSelectedId = selectedId ?? subnets[0]?.id;
 
   const sortedSubnets = useMemo(() => {
     return [...subnets].sort((a, b) => {
@@ -106,7 +103,7 @@ export default function NetFlowTable({ subnets, timeline, onNavigate }) {
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {sortedSubnets.map((subnet) => {
-                const isSelected = selectedSubnet?.id === subnet.id;
+                const isSelected = effectiveSelectedId === subnet.id;
                 return (
                   <tr
                     key={subnet.id}

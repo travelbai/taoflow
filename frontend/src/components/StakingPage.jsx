@@ -8,7 +8,6 @@ const LOW_STAKE_THRESHOLD = 1000; // TAO
 export default function StakingPage({ subnets, apiUrl, onNavigate }) {
   const [netuid, setNetuid] = useState(0);
   const [validators, setValidators] = useState([]);
-  const [loading, setLoading] = useState(false);
   const { sortConfig, handleSort, SortIcon } = useSortable('apy_1d');
   const [stakeInput, setStakeInput] = useState('');
   const [showLowStake, setShowLowStake] = useState(false);
@@ -25,13 +24,11 @@ export default function StakingPage({ subnets, apiUrl, onNavigate }) {
 
   useEffect(() => {
     if (!apiUrl) return;
-    setLoading(true);
     setSelectedHotkey(null);
     fetch(`${apiUrl}/staking?netuid=${netuid}`)
       .then(r => r.json())
       .then(j => setValidators(j.data ?? []))
-      .catch(() => setValidators([]))
-      .finally(() => setLoading(false));
+      .catch(() => setValidators([]));
   }, [netuid, apiUrl]);
 
   const filtered = useMemo(() =>

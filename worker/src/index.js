@@ -16,6 +16,25 @@ function getCorsHeaders(request) {
 const API = 'https://api.taostats.io/api';
 const RAO = 1_000_000_000;
 
+// Constant-time string comparison — avoid early-exit timing leaks on secret tokens
+function safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+// In-isolate rate limiter for /refresh — guards against token misuse draining Taostats quota.
+// Cron path uses scheduled() directly and bypasses this limiter.
+const REFRESH_MIN_INTERVAL_MS = 60_000;
+const lastRefreshAt = new Map(); // type → epoch ms
+
+// Hard upper bound on netuid — Bittensor reserves netuid 0 (root) and currently has <200 subnets.
+// Used to reject /staking and /refresh?type=staking probes that would otherwise pollute KV
+// and burn Taostats quota with garbage requests.
+const MAX_NETUID = 1024;
+
 // ─── Taostats helpers ────────────────────────────────────────────────────────
 
 function rao(v) {
@@ -359,19 +378,60 @@ export default {
       if (request.method !== 'POST') {
         return new Response('Method Not Allowed', { status: 405, headers: getCorsHeaders(request) });
       }
-      if (!env.REFRESH_TOKEN || searchParams.get('token') !== env.REFRESH_TOKEN) {
+      if (!env.REFRESH_TOKEN || !safeEqual(searchParams.get('token') ?? '', env.REFRESH_TOKEN)) {
         return new Response('Unauthorized', { status: 401, headers: getCorsHeaders(request) });
       }
+      // Normalize operation type up-front. Unknown values are rejected (not silently mapped to core)
+      // so attackers cannot mint new rate-limit buckets by varying the param.
+      const rawType = searchParams.get('type');
+      let opKind;        // 'core' | 'full' | 'staking'
+      let stakingNetuid; // only set when opKind === 'staking'
+      if (rawType == null || rawType === 'core') {
+        opKind = 'core';
+      } else if (rawType === 'full') {
+        opKind = 'full';
+      } else if (rawType === 'staking') {
+        const n = parseInt(searchParams.get('netuid') ?? '1', 10);
+        if (!Number.isInteger(n) || n < 0 || n > MAX_NETUID) {
+          return new Response(
+            JSON.stringify({ error: 'invalid_netuid' }),
+            { status: 400, headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' } }
+          );
+        }
+        opKind = 'staking';
+        stakingNetuid = n;
+      } else {
+        return new Response(
+          JSON.stringify({ error: 'invalid_type' }),
+          { status: 400, headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' } }
+        );
+      }
+      const refreshType = opKind === 'staking' ? `staking:${stakingNetuid}` : opKind;
+      const lastAt = lastRefreshAt.get(refreshType) ?? 0;
+      const sinceMs = Date.now() - lastAt;
+      if (sinceMs < REFRESH_MIN_INTERVAL_MS) {
+        return new Response(
+          JSON.stringify({ error: 'rate_limited', retryAfterMs: REFRESH_MIN_INTERVAL_MS - sinceMs }),
+          {
+            status: 429,
+            headers: {
+              ...getCorsHeaders(request),
+              'Content-Type': 'application/json',
+              'Retry-After': String(Math.ceil((REFRESH_MIN_INTERVAL_MS - sinceMs) / 1000)),
+            },
+          }
+        );
+      }
+      lastRefreshAt.set(refreshType, Date.now());
       try {
-        if (searchParams.get('type') === 'staking') {
-          const netuid = parseInt(searchParams.get('netuid') ?? '1', 10);
-          const result = await fetchStakingForNetuid(env, netuid);
+        if (opKind === 'staking') {
+          const result = await fetchStakingForNetuid(env, stakingNetuid);
           return new Response(
             JSON.stringify({ ok: true, validators: result.data.length, updatedAt: result.updatedAt }),
             { status: 200, headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' } }
           );
         }
-        if (searchParams.get('type') === 'full') {
+        if (opKind === 'full') {
           const data = await refresh(env);
           return new Response(
             JSON.stringify({ ok: true, subnets: data.subnets.length, updatedAt: data.meta.updatedAt }),
@@ -394,7 +454,13 @@ export default {
     // News endpoint — fetch X-scraped subnet news from KV, up to 30 days
     if (pathname === '/api/news') {
       const days = Math.min(parseInt(searchParams.get('days') ?? '30', 10), 30);
-      const news = await getNewsList(env, days);
+      let news = [];
+      try {
+        news = await getNewsList(env, days);
+      } catch (e) {
+        // KV transient error — return empty list so the News tab degrades gracefully instead of white-screening
+        console.error('getNewsList failed:', e?.message);
+      }
       return new Response(JSON.stringify(news), {
         headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
       });
@@ -403,6 +469,14 @@ export default {
     // Staking endpoint — on-demand fetch per netuid, 24h KV cache
     if (pathname === '/staking') {
       const netuid = parseInt(searchParams.get('netuid') ?? '0', 10);
+      // Reject out-of-range netuids before they hit Taostats / KV — prevents quota burn
+      // and KV pollution from attackers iterating arbitrary integers.
+      if (!Number.isInteger(netuid) || netuid < 0 || netuid > MAX_NETUID) {
+        return new Response(
+          JSON.stringify({ error: 'invalid_netuid' }),
+          { status: 400, headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' } }
+        );
+      }
       const STAKING_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — APY data changes slowly
       const cacheKey = `taoflow_staking_${netuid}`;
 

@@ -116,7 +116,7 @@ export default function NewsPanel({ onTabClick }) {
                 );
               }
 
-              const isLast = idx === items.length - 1 || (idx < items.length - 1 && items[idx + 1].type === 'separator');
+              const isLast = idx === items.length - 1 || items[idx + 1].type === 'separator';
 
               return (
                 <div key={item.key} className="flex" style={{ gap: 16 }}>
