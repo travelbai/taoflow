@@ -5,8 +5,7 @@ import { formatAPY } from '../utils/format';
 
 const LOW_STAKE_THRESHOLD = 1000; // TAO
 
-export default function StakingPage({ subnets, apiUrl, onNavigate }) {
-  const [netuid, setNetuid] = useState(0);
+export default function StakingPage({ subnets, apiUrl, netuid, onNetuidChange, onNavigate }) {
   const [validators, setValidators] = useState([]);
   const { sortConfig, handleSort, SortIcon } = useSortable('apy_1d');
   const [stakeInput, setStakeInput] = useState('');
@@ -68,6 +67,7 @@ export default function StakingPage({ subnets, apiUrl, onNavigate }) {
       <div className="border border-zinc-200 bg-white">
         <div className="px-6 py-4 flex items-center justify-between">
           <button onClick={() => onNavigate('home')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">NET FLOW</button>
+          <button onClick={() => onNavigate('apy-staking')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">APY STAKING</button>
           <button className="text-sm font-medium tracking-widest uppercase text-black border-b-2 border-green-500 pb-0.5">Staking</button>
           <button onClick={() => onNavigate('news')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">News</button>
         </div>
@@ -78,7 +78,7 @@ export default function StakingPage({ subnets, apiUrl, onNavigate }) {
           <span className="text-xs text-zinc-400 tracking-widest uppercase shrink-0">Subnet</span>
           <select
             value={netuid}
-            onChange={e => setNetuid(Number(e.target.value))}
+            onChange={e => onNetuidChange(Number(e.target.value))}
             className="border border-zinc-200 px-3 py-1.5 text-sm font-mono text-zinc-700 bg-white focus:outline-none focus:border-zinc-400"
           >
             {subnetOptions.map(s => (
