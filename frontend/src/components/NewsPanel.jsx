@@ -87,6 +87,7 @@ export default function NewsPanel({ onTabClick }) {
       <div className="border border-zinc-200 bg-white">
         <div className="px-6 py-4 flex items-center justify-between">
           <button onClick={() => onTabClick?.('home')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">NET FLOW</button>
+          <button onClick={() => onTabClick?.('apy-staking')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">APY STAKING</button>
           <button onClick={() => onTabClick?.('staking')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">Staking</button>
           <button className="text-sm font-medium tracking-widest uppercase text-black border-b-2 border-green-500 pb-0.5">News</button>
         </div>

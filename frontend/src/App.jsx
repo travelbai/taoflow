@@ -6,11 +6,13 @@ import { useData } from './hooks';
 import { formatUTC } from './utils/format';
 import NetFlowTable from './components/NetFlowTable';
 import StakingPage from './components/StakingPage';
+import ApyStakingPage from './components/ApyStakingPage';
 import NewsPanel from './components/NewsPanel';
 
 export default function App() {
   const { data, loading, error, updatedAt } = useData(API_URL);
   const [page, setPage] = useState('home');
+  const [stakingNetuid, setStakingNetuid] = useState(0);
 
   const subnets = data?.subnets ?? [];
   const timeline = data?.timeline ?? [];
@@ -68,7 +70,23 @@ export default function App() {
         </header>
 
         {page === 'staking' ? (
-          <StakingPage subnets={subnets} apiUrl={API_URL} onNavigate={setPage} />
+          <StakingPage
+            subnets={subnets}
+            apiUrl={API_URL}
+            netuid={stakingNetuid}
+            onNetuidChange={setStakingNetuid}
+            onNavigate={setPage}
+          />
+        ) : page === 'apy-staking' ? (
+          <ApyStakingPage
+            subnets={subnets}
+            apiUrl={API_URL}
+            onNavigate={setPage}
+            onSelectSubnet={(netuid) => {
+              setStakingNetuid(netuid);
+              setPage('staking');
+            }}
+          />
         ) : page === 'news' ? (
           <NewsPanel onTabClick={setPage} />
         ) : (

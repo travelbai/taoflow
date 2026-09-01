@@ -34,6 +34,7 @@ export default function NetFlowTable({ subnets, timeline, onNavigate }) {
       <div className="border border-zinc-200 bg-white">
         <div className="p-6 border-b border-zinc-200 flex items-center justify-between">
           <button onClick={() => onNavigate('home')} className="text-sm font-medium tracking-widest uppercase pb-0.5 text-black border-b-2 border-green-500">NET FLOW</button>
+          <button onClick={() => onNavigate('apy-staking')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">APY STAKING</button>
           <button onClick={() => onNavigate('staking')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">Staking</button>
           <button onClick={() => onNavigate('news')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">News</button>
         </div>
