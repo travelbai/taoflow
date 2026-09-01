@@ -8,67 +8,50 @@ const APY_COLUMNS = [
   ['apy_7d', '7D APY'],
   ['apy_30d', '30D APY'],
 ];
-const LOW_STAKE_THRESHOLD = 1000; // Matches the default STAKING table filter.
-
-function apyValue(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-function buildSubnetApy(validators) {
-  const highest7d = validators.reduce((best, validator) => {
-    const apy = apyValue(validator.apy_7d);
-    if (apy == null || Number(validator.stake ?? 0) < LOW_STAKE_THRESHOLD) return best;
-    return !best || apy > apyValue(best.apy_7d) ? validator : best;
-  }, null);
-  return {
-    hotkey: highest7d?.hotkey ?? null,
-    ...Object.fromEntries(APY_COLUMNS.map(([key]) => [key, apyValue(highest7d?.[key])])),
-  };
-}
-
 export default function ApyStakingPage({ subnets, apiUrl, onNavigate, onSelectSubnet }) {
   const { sortConfig, handleSort, SortIcon } = useSortable('id', 'asc');
   const [apyByNetuid, setApyByNetuid] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  // This primitive remains equal across the 30-second core-data poll when the
+  // active IDs are unchanged, so the ranking makes only one batch request.
+  const netuidList = useMemo(
+    () => [...subnets].map(subnet => subnet.id).filter(Number.isInteger).sort((a, b) => a - b).join(','),
+    [subnets]
+  );
 
   useEffect(() => {
-    if (!apiUrl || !subnets.length) return;
-
+    if (!apiUrl || !netuidList) {
+      setApyByNetuid({});
+      return;
+    }
     let cancelled = false;
-    let nextIndex = 0;
-    const loadOne = async () => {
-      while (!cancelled) {
-        const subnet = subnets[nextIndex++];
-        if (!subnet) return;
-        try {
-          const response = await fetch(`${apiUrl}/staking?netuid=${subnet.id}`);
-          const payload = await response.json();
-          if (!response.ok || !Array.isArray(payload.data) || cancelled) continue;
-          setApyByNetuid(current => ({
-            ...current,
-            [subnet.id]: buildSubnetApy(payload.data),
-          }));
-        } catch {
-          // Leave this subnet blank; a later visit retries through the existing API cache.
-        }
-      }
-    };
-
-    // Limit concurrent requests so opening the ranking does not flood the existing API.
-    Promise.all(Array.from({ length: Math.min(4, subnets.length) }, loadOne));
+    setLoading(true);
+    fetch(`${apiUrl}/staking/apy?netuids=${encodeURIComponent(netuidList)}`)
+      .then(response => response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`)))
+      .then(response => {
+        if (!cancelled) setApyByNetuid(response.data ?? {});
+      })
+      .catch(() => {
+        if (!cancelled) setApyByNetuid({});
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => { cancelled = true; };
-  }, [apiUrl, subnets]);
+  }, [apiUrl, netuidList]);
 
   const rankedSubnets = useMemo(() => subnets
     .map(subnet => {
-      const apy = apyByNetuid[subnet.id];
+      const summary = apyByNetuid[subnet.id];
+      const validator = summary?.validator;
       return {
         ...subnet,
-        apy_1h: apy?.apy_1h ?? null,
-        apy_1d: apy?.apy_1d ?? null,
-        apy_7d: apy?.apy_7d ?? null,
-        apy_30d: apy?.apy_30d ?? null,
-        hotkey: apy?.hotkey ?? null,
+        apy_1h: validator?.apy_1h ?? null,
+        apy_1d: validator?.apy_1d ?? null,
+        apy_7d: validator?.apy_7d ?? null,
+        apy_30d: validator?.apy_30d ?? null,
+        hotkey: validator?.hotkey ?? null,
       };
     })
     .sort((a, b) => {
@@ -91,6 +74,7 @@ export default function ApyStakingPage({ subnets, apiUrl, onNavigate, onSelectSu
       </div>
 
       <div className="border border-zinc-200 bg-white">
+        {loading && <div className="px-4 py-2 border-b border-zinc-200 text-right text-[10px] text-zinc-400 font-mono">Loading snapshots…</div>}
         <div className="overflow-x-auto max-h-[620px] overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
           <table className="w-full text-sm text-left table-fixed">
             <colgroup>

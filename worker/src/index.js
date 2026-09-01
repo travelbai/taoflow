@@ -34,6 +34,16 @@ const lastRefreshAt = new Map(); // type → epoch ms
 // Used to reject /staking and /refresh?type=staking probes that would otherwise pollute KV
 // and burn Taostats quota with garbage requests.
 const MAX_NETUID = 1024;
+const STAKING_TTL_MS = 24 * 60 * 60 * 1000;
+
+// Taostats' free tier is deliberately treated as a scarce, shared resource.
+// Four subnets per 20-minute core refresh covers 128 subnets in ~10.7 hours;
+// running them serially keeps the validator-yield pagination and the shared
+// take-map request from becoming a burst.
+const STAKING_WARMUP_BATCH_SIZE = 4;
+const STAKING_WARMUP_MAX_CONCURRENCY = 1;
+const STAKING_WARMUP_INTERVAL_MS = 750;
+const MAX_APY_NETUIDS = 200;
 
 // ─── Taostats helpers ────────────────────────────────────────────────────────
 
@@ -328,12 +338,24 @@ async function getTakeMap(env) {
   return map;
 }
 
-// Fetch and cache validator yield for a single netuid — called on demand from /staking
-async function fetchStakingForNetuid(env, netuid) {
-  const [yieldRaw, takeMap] = await Promise.all([
+function parseUpdatedAt(updatedAt) {
+  const timestamp = new Date(updatedAt ?? '').getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function isStakingSnapshotStale(snapshot, now = Date.now()) {
+  const updatedAt = parseUpdatedAt(snapshot?.updatedAt);
+  return updatedAt === null || now - updatedAt >= STAKING_TTL_MS;
+}
+
+// Fetch and cache validator yield for a single netuid. `takeMap` lets a cron
+// batch share its one global validator-take lookup across every subnet.
+async function fetchStakingForNetuid(env, netuid, takeMap) {
+  const [yieldRaw, resolvedTakeMap] = await Promise.all([
     fetchPages(env, '/dtao/validator/yield/latest/v1', { netuid }, 5),
-    getTakeMap(env),
+    takeMap === undefined ? getTakeMap(env) : Promise.resolve(takeMap),
   ]);
+  if (!Array.isArray(yieldRaw)) throw new Error(`invalid staking response for netuid ${netuid}`);
   const data = yieldRaw.map(v => {
     const hk = v.hotkey?.ss58 || '';
     return {
@@ -344,12 +366,106 @@ async function fetchStakingForNetuid(env, netuid) {
       apy_1d:  +(Number(v.one_day_apy    ?? 0) * 100).toFixed(3),
       apy_7d:  +(Number(v.seven_day_apy  ?? 0) * 100).toFixed(3),
       apy_30d: +(Number(v.thirty_day_apy ?? 0) * 100).toFixed(3),
-      commission: takeMap[hk] ?? 18,
+      commission: resolvedTakeMap[hk] ?? 18,
     };
   });
+
+  // A transient upstream regression must not replace a usable snapshot with
+  // an empty array. Empty data is still allowed for a genuinely new subnet.
+  const cacheKey = `taoflow_staking_${netuid}`;
+  const previous = await env.TAOFLOW_KV.get(cacheKey, { type: 'json' });
+  if (data.length === 0 && Array.isArray(previous?.data) && previous.data.length > 0) {
+    throw new Error(`refusing to overwrite non-empty staking snapshot for netuid ${netuid} with empty data`);
+  }
   const updatedAt = new Date().toISOString();
-  await env.TAOFLOW_KV.put(`taoflow_staking_${netuid}`, JSON.stringify({ data, updatedAt }));
+  await env.TAOFLOW_KV.put(cacheKey, JSON.stringify({ data, updatedAt }));
   return { data, updatedAt };
+}
+
+// The APY listing is derived entirely from the persisted snapshot, never from
+// Taostats. Returning only the representative validator keeps this endpoint
+// compact while preserving all APY windows needed by the ranking UI.
+function buildSubnetApySummary(snapshot) {
+  const validators = Array.isArray(snapshot?.data) ? snapshot.data : [];
+  const validator = validators.reduce((best, current) => {
+    const currentApy = Number(current?.apy_7d);
+    const bestApy = Number(best?.apy_7d);
+    return !best || (Number.isFinite(currentApy) ? currentApy : -Infinity) > (Number.isFinite(bestApy) ? bestApy : -Infinity)
+      ? current
+      : best;
+  }, null);
+  if (!validator) return null;
+  return {
+    validator: {
+      name: validator.name ?? '',
+      hotkey: validator.hotkey ?? '',
+      apy_1h: Number(validator.apy_1h ?? 0),
+      apy_1d: Number(validator.apy_1d ?? 0),
+      apy_7d: Number(validator.apy_7d ?? 0),
+      apy_30d: Number(validator.apy_30d ?? 0),
+    },
+    updatedAt: snapshot.updatedAt ?? null,
+    stale: isStakingSnapshotStale(snapshot),
+  };
+}
+
+async function selectStakingWarmupNetuids(env, subnets, now = Date.now()) {
+  const activeNetuids = [...new Set((Array.isArray(subnets) ? subnets : [])
+    .map(subnet => Number(subnet?.id))
+    .filter(netuid => Number.isInteger(netuid) && netuid > 0 && netuid <= MAX_NETUID))];
+
+  const candidates = [];
+  await Promise.all(activeNetuids.map(async netuid => {
+    let snapshot;
+    try {
+      snapshot = await env.TAOFLOW_KV.get(`taoflow_staking_${netuid}`, { type: 'json' });
+    } catch (error) {
+      // Treat a KV read failure as unknown, not as missing, so an existing
+      // snapshot cannot be inadvertently replaced during a partial outage.
+      console.error('staking warm-up KV read failed', { netuid, error: error?.message });
+      return;
+    }
+    const timestamp = parseUpdatedAt(snapshot?.updatedAt);
+    const priority = !snapshot ? 0 : timestamp === null ? 1 : now - timestamp >= STAKING_TTL_MS ? 2 : null;
+    if (priority !== null) candidates.push({ netuid, priority, updatedAt: timestamp ?? 0 });
+  }));
+
+  return candidates
+    .sort((a, b) => a.priority - b.priority || a.updatedAt - b.updatedAt || a.netuid - b.netuid)
+    .slice(0, STAKING_WARMUP_BATCH_SIZE)
+    .map(candidate => candidate.netuid);
+}
+
+async function warmupStakingSnapshots(env, subnets) {
+  const netuids = await selectStakingWarmupNetuids(env, subnets);
+  if (netuids.length === 0) return { selected: [], refreshed: 0 };
+
+  // Fetch once before processing the serial batch. If it fails, no snapshot is
+  // written and every selected subnet remains eligible for the next cron run.
+  let takeMap;
+  try {
+    takeMap = await getTakeMap(env);
+  } catch (error) {
+    console.error('staking warm-up take map failed', { error: error?.message, netuids });
+    return { selected: netuids, refreshed: 0 };
+  }
+
+  let refreshed = 0;
+  // MAX_CONCURRENCY is intentionally one today. Keep this runner explicit so
+  // a future increase cannot accidentally turn into an unbounded Promise.all.
+  for (let index = 0; index < netuids.length; index += STAKING_WARMUP_MAX_CONCURRENCY) {
+    const batch = netuids.slice(index, index + STAKING_WARMUP_MAX_CONCURRENCY);
+    await Promise.all(batch.map(async netuid => {
+      try {
+        await fetchStakingForNetuid(env, netuid, takeMap);
+        refreshed += 1;
+      } catch (error) {
+        console.error('staking warm-up refresh failed; preserving existing snapshot', { netuid, error: error?.message });
+      }
+    }));
+    if (index + STAKING_WARMUP_MAX_CONCURRENCY < netuids.length) await sleep(STAKING_WARMUP_INTERVAL_MS);
+  }
+  return { selected: netuids, refreshed };
 }
 
 // ─── News (X-scraped subnet updates) ─────────────────────────────────────────
@@ -466,40 +582,67 @@ export default {
       });
     }
 
-    // Staking endpoint — on-demand fetch per netuid, 24h KV cache
+    // APY ranking endpoint — a single batch KV read, never an upstream fetch.
+    if (pathname === '/staking/apy') {
+      const rawNetuids = searchParams.get('netuids');
+      const netuids = rawNetuids == null ? [] : rawNetuids.split(',').map(value => Number(value.trim()));
+      if (
+        netuids.length === 0 ||
+        netuids.length > MAX_APY_NETUIDS ||
+        netuids.some(netuid => !Number.isInteger(netuid) || netuid < 0 || netuid > MAX_NETUID) ||
+        new Set(netuids).size !== netuids.length
+      ) {
+        return new Response(JSON.stringify({ error: 'invalid_netuids' }), {
+          status: 400,
+          headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' },
+        });
+      }
+
+      const entries = await Promise.all(netuids.map(async netuid => {
+        try {
+          const snapshot = await env.TAOFLOW_KV.get(`taoflow_staking_${netuid}`, { type: 'json' });
+          const summary = buildSubnetApySummary(snapshot);
+          return summary ? [netuid, summary] : null;
+        } catch (error) {
+          console.error('staking APY KV read failed', { netuid, error: error?.message });
+          return null;
+        }
+      }));
+      const data = Object.fromEntries(entries.filter(Boolean));
+      return new Response(JSON.stringify({ data }), {
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' },
+      });
+    }
+
+    // Staking endpoint — KV-only. Browser navigation must never spend Taostats
+    // quota or turn a cache miss into a thundering herd of upstream requests.
     if (pathname === '/staking') {
       const netuid = parseInt(searchParams.get('netuid') ?? '0', 10);
-      // Reject out-of-range netuids before they hit Taostats / KV — prevents quota burn
-      // and KV pollution from attackers iterating arbitrary integers.
+      // Reject out-of-range netuids before they hit KV.
       if (!Number.isInteger(netuid) || netuid < 0 || netuid > MAX_NETUID) {
         return new Response(
           JSON.stringify({ error: 'invalid_netuid' }),
           { status: 400, headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' } }
         );
       }
-      const STAKING_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — APY data changes slowly
       const cacheKey = `taoflow_staking_${netuid}`;
-
-      const cached = await env.TAOFLOW_KV.get(cacheKey, { type: 'json' });
-      if (cached && Date.now() - new Date(cached.updatedAt).getTime() < STAKING_TTL_MS) {
-        return new Response(JSON.stringify({ data: cached.data, updatedAt: cached.updatedAt }), {
-          headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' },
-        });
-      }
-
       try {
-        const result = await fetchStakingForNetuid(env, netuid);
-        return new Response(JSON.stringify(result), {
+        const cached = await env.TAOFLOW_KV.get(cacheKey, { type: 'json' });
+        if (cached) {
+          return new Response(JSON.stringify({
+            data: Array.isArray(cached.data) ? cached.data : [],
+            updatedAt: cached.updatedAt ?? null,
+            stale: isStakingSnapshotStale(cached),
+          }), {
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' },
+          });
+        }
+        return new Response(JSON.stringify({ data: [], updatedAt: null, pending: true }), {
           headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' },
         });
       } catch (e) {
-        // Fall back to stale cache rather than showing empty
-        if (cached) {
-          return new Response(JSON.stringify({ data: cached.data, updatedAt: cached.updatedAt }), {
-            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' },
-          });
-        }
-        return new Response(JSON.stringify({ data: [], error: e.message }), {
+        console.error('staking KV read failed', { netuid, error: e?.message });
+        return new Response(JSON.stringify({ data: [], updatedAt: null, pending: true }), {
           status: 200, headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' },
         });
       }
@@ -534,7 +677,26 @@ export default {
     if (event.cron === '0 */2 * * *') {
       ctx.waitUntil(refresh(env));
     } else {
-      ctx.waitUntil(refreshCore(env));
+      ctx.waitUntil((async () => {
+        const data = await refreshCore(env);
+        try {
+          await warmupStakingSnapshots(env, data.subnets);
+        } catch (error) {
+          // A staking warm-up failure must never make the core cron look failed.
+          console.error('staking warm-up failed after core refresh', { error: error?.message });
+        }
+      })());
     }
   },
+};
+
+export {
+  STAKING_TTL_MS,
+  STAKING_WARMUP_BATCH_SIZE,
+  STAKING_WARMUP_MAX_CONCURRENCY,
+  buildSubnetApySummary,
+  fetchStakingForNetuid,
+  isStakingSnapshotStale,
+  selectStakingWarmupNetuids,
+  warmupStakingSnapshots,
 };

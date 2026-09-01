@@ -7,6 +7,7 @@ const LOW_STAKE_THRESHOLD = 1000; // TAO
 
 export default function StakingPage({ subnets, apiUrl, netuid, onNetuidChange, selectedHotkey, onSelectedHotkeyChange, onNavigate }) {
   const [validators, setValidators] = useState([]);
+  const [stakingState, setStakingState] = useState({ loading: true, pending: false, stale: false, updatedAt: null });
   const { sortConfig, handleSort, SortIcon } = useSortable('apy_1d');
   const [stakeInput, setStakeInput] = useState('');
   const [showLowStake, setShowLowStake] = useState(false);
@@ -22,10 +23,20 @@ export default function StakingPage({ subnets, apiUrl, netuid, onNetuidChange, s
 
   useEffect(() => {
     if (!apiUrl) return;
+    let cancelled = false;
+    setValidators([]);
+    setStakingState({ loading: true, pending: false, stale: false, updatedAt: null });
     fetch(`${apiUrl}/staking?netuid=${netuid}`)
-      .then(r => r.json())
-      .then(j => setValidators(j.data ?? []))
-      .catch(() => setValidators([]));
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(j => {
+        if (cancelled) return;
+        setValidators(j.data ?? []);
+        setStakingState({ loading: false, pending: j.pending === true, stale: j.stale === true, updatedAt: j.updatedAt ?? null });
+      })
+      .catch(() => {
+        if (!cancelled) setStakingState({ loading: false, pending: true, stale: false, updatedAt: null });
+      });
+    return () => { cancelled = true; };
   }, [netuid, apiUrl]);
 
   const filtered = useMemo(() =>
@@ -70,6 +81,13 @@ export default function StakingPage({ subnets, apiUrl, netuid, onNetuidChange, s
           <button onClick={() => onNavigate('news')} className="text-sm font-medium tracking-widest uppercase text-zinc-400 hover:text-zinc-600 pb-0.5">News</button>
         </div>
       </div>
+      {(stakingState.pending || stakingState.stale) && (
+        <div className={`border px-4 py-3 text-xs font-mono ${stakingState.pending ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+          {stakingState.pending
+            ? '该子网 APY 快照等待后台更新。'
+            : `显示上次快照（${stakingState.updatedAt ? new Date(stakingState.updatedAt).toLocaleString() : '时间未知'}）；等待后台刷新。`}
+        </div>
+      )}
       {/* Subnet + Calculator row */}
       <div className="border border-zinc-200 bg-white px-6 py-4 flex items-center justify-between gap-6">
         <div className="flex items-center gap-3">
@@ -216,7 +234,9 @@ export default function StakingPage({ subnets, apiUrl, netuid, onNetuidChange, s
                 })}
                 {sorted.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-zinc-400 font-mono text-xs">No data</td>
+                    <td colSpan={7} className="px-4 py-8 text-center text-zinc-400 font-mono text-xs">
+                      {stakingState.loading ? 'Loading snapshot…' : stakingState.pending ? '该子网 APY 快照等待后台更新。' : 'No data'}
+                    </td>
                   </tr>
                 )}
               </tbody>
