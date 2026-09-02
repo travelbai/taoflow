@@ -13,6 +13,7 @@ export default function App() {
   const { data, loading, error, updatedAt } = useData(API_URL);
   const [page, setPage] = useState('home');
   const [stakingNetuid, setStakingNetuid] = useState(0);
+  const [stakingHotkey, setStakingHotkey] = useState(null);
 
   const subnets = data?.subnets ?? [];
   const timeline = data?.timeline ?? [];
@@ -75,6 +76,8 @@ export default function App() {
             apiUrl={API_URL}
             netuid={stakingNetuid}
             onNetuidChange={setStakingNetuid}
+            selectedHotkey={stakingHotkey}
+            onSelectedHotkeyChange={setStakingHotkey}
             onNavigate={setPage}
           />
         ) : page === 'apy-staking' ? (
@@ -82,8 +85,9 @@ export default function App() {
             subnets={subnets}
             apiUrl={API_URL}
             onNavigate={setPage}
-            onSelectSubnet={(netuid) => {
-              setStakingNetuid(netuid);
+            onSelectSubnet={(subnet) => {
+              setStakingNetuid(subnet.id);
+              setStakingHotkey(subnet.hotkey);
               setPage('staking');
             }}
           />
