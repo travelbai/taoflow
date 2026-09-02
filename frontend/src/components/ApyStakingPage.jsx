@@ -8,6 +8,7 @@ const APY_COLUMNS = [
   ['apy_7d', '7D APY'],
   ['apy_30d', '30D APY'],
 ];
+const LOW_STAKE_THRESHOLD = 1000; // Matches the default STAKING table filter.
 
 function apyValue(value) {
   const number = Number(value);
@@ -17,14 +18,17 @@ function apyValue(value) {
 function buildSubnetApy(validators) {
   const highest7d = validators.reduce((best, validator) => {
     const apy = apyValue(validator.apy_7d);
-    if (apy == null) return best;
+    if (apy == null || Number(validator.stake ?? 0) < LOW_STAKE_THRESHOLD) return best;
     return !best || apy > apyValue(best.apy_7d) ? validator : best;
   }, null);
-  return Object.fromEntries(APY_COLUMNS.map(([key]) => [key, apyValue(highest7d?.[key])]));
+  return {
+    hotkey: highest7d?.hotkey ?? null,
+    ...Object.fromEntries(APY_COLUMNS.map(([key]) => [key, apyValue(highest7d?.[key])])),
+  };
 }
 
 export default function ApyStakingPage({ subnets, apiUrl, onNavigate, onSelectSubnet }) {
-  const { sortConfig, handleSort, SortIcon } = useSortable('apy_7d');
+  const { sortConfig, handleSort, SortIcon } = useSortable('id', 'asc');
   const [apyByNetuid, setApyByNetuid] = useState({});
 
   useEffect(() => {
@@ -56,13 +60,17 @@ export default function ApyStakingPage({ subnets, apiUrl, onNavigate, onSelectSu
   }, [apiUrl, subnets]);
 
   const rankedSubnets = useMemo(() => subnets
-    .map(subnet => ({
-      ...subnet,
-      apy_1h: apyValue(subnet.apy_1h) ?? apyByNetuid[subnet.id]?.apy_1h ?? null,
-      apy_1d: apyValue(subnet.apy_1d) ?? apyByNetuid[subnet.id]?.apy_1d ?? null,
-      apy_7d: apyValue(subnet.apy_7d) ?? apyByNetuid[subnet.id]?.apy_7d ?? null,
-      apy_30d: apyValue(subnet.apy_30d) ?? apyByNetuid[subnet.id]?.apy_30d ?? null,
-    }))
+    .map(subnet => {
+      const apy = apyByNetuid[subnet.id];
+      return {
+        ...subnet,
+        apy_1h: apy?.apy_1h ?? null,
+        apy_1d: apy?.apy_1d ?? null,
+        apy_7d: apy?.apy_7d ?? null,
+        apy_30d: apy?.apy_30d ?? null,
+        hotkey: apy?.hotkey ?? null,
+      };
+    })
     .sort((a, b) => {
       const av = a[sortConfig.key];
       const bv = b[sortConfig.key];
@@ -94,7 +102,9 @@ export default function ApyStakingPage({ subnets, apiUrl, onNavigate, onSelectSu
             </colgroup>
             <thead className="text-xs text-zinc-600 tracking-widest sticky top-0 z-10">
               <tr className="bg-white border-b border-zinc-200">
-                <th className="px-4 py-4 font-normal">Subnet</th>
+                <th className="px-4 py-4 font-normal cursor-pointer" onClick={() => handleSort('id')}>
+                  <span className="relative inline-flex">Subnet <SortIcon col="id" /></span>
+                </th>
                 {APY_COLUMNS.map(([key, label]) => (
                   <th key={key} className="px-4 py-4 font-normal text-center cursor-pointer" onClick={() => handleSort(key)}>
                     <span className="relative inline-flex">{label} <SortIcon col={key} /></span>
@@ -104,7 +114,7 @@ export default function ApyStakingPage({ subnets, apiUrl, onNavigate, onSelectSu
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {rankedSubnets.map(subnet => (
-                <tr key={subnet.id} onClick={() => onSelectSubnet(subnet.id)} className="cursor-pointer hover:bg-zinc-50">
+                <tr key={subnet.id} onClick={() => onSelectSubnet(subnet)} className="cursor-pointer hover:bg-zinc-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs text-zinc-400 shrink-0">SN{String(subnet.id).padStart(2, '0')}</span>

@@ -5,12 +5,11 @@ import { formatAPY } from '../utils/format';
 
 const LOW_STAKE_THRESHOLD = 1000; // TAO
 
-export default function StakingPage({ subnets, apiUrl, netuid, onNetuidChange, onNavigate }) {
+export default function StakingPage({ subnets, apiUrl, netuid, onNetuidChange, selectedHotkey, onSelectedHotkeyChange, onNavigate }) {
   const [validators, setValidators] = useState([]);
   const { sortConfig, handleSort, SortIcon } = useSortable('apy_1d');
   const [stakeInput, setStakeInput] = useState('');
   const [showLowStake, setShowLowStake] = useState(false);
-  const [selectedHotkey, setSelectedHotkey] = useState(null);
   const [copiedHotkey, setCopiedHotkey] = useState(null);
 
   const copyAddress = useCallback((e, hotkey) => {
@@ -23,7 +22,6 @@ export default function StakingPage({ subnets, apiUrl, netuid, onNetuidChange, o
 
   useEffect(() => {
     if (!apiUrl) return;
-    setSelectedHotkey(null);
     fetch(`${apiUrl}/staking?netuid=${netuid}`)
       .then(r => r.json())
       .then(j => setValidators(j.data ?? []))
@@ -78,7 +76,10 @@ export default function StakingPage({ subnets, apiUrl, netuid, onNetuidChange, o
           <span className="text-xs text-zinc-400 tracking-widest uppercase shrink-0">Subnet</span>
           <select
             value={netuid}
-            onChange={e => onNetuidChange(Number(e.target.value))}
+            onChange={e => {
+              onSelectedHotkeyChange(null);
+              onNetuidChange(Number(e.target.value));
+            }}
             className="border border-zinc-200 px-3 py-1.5 text-sm font-mono text-zinc-700 bg-white focus:outline-none focus:border-zinc-400"
           >
             {subnetOptions.map(s => (
@@ -171,7 +172,7 @@ export default function StakingPage({ subnets, apiUrl, netuid, onNetuidChange, o
                   return (
                   <tr
                     key={v.hotkey ?? i}
-                    onClick={() => setSelectedHotkey(v.hotkey)}
+                    onClick={() => onSelectedHotkeyChange(v.hotkey)}
                     className={`cursor-pointer ${isSelected ? 'bg-green-50' : 'hover:bg-zinc-50'}`}
                   >
                     <td className="px-4 py-3">
