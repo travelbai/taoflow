@@ -416,7 +416,7 @@ function buildSubnetApySummary(snapshot) {
 async function selectStakingWarmupNetuids(env, subnets, now = Date.now()) {
   const activeNetuids = [...new Set((Array.isArray(subnets) ? subnets : [])
     .map(subnet => Number(subnet?.id))
-    .filter(netuid => Number.isInteger(netuid) && netuid > 0 && netuid <= MAX_NETUID))];
+    .filter(netuid => Number.isInteger(netuid) && netuid >= 0 && netuid <= MAX_NETUID))];
 
   const candidates = [];
   await Promise.all(activeNetuids.map(async netuid => {
@@ -435,7 +435,10 @@ async function selectStakingWarmupNetuids(env, subnets, now = Date.now()) {
   }));
 
   return candidates
-    .sort((a, b) => a.priority - b.priority || a.updatedAt - b.updatedAt || a.netuid - b.netuid)
+    // Root is not in taoflow_data.subnets, but it has a visible Staking page.
+    // When its snapshot is stale, process it before the normal active-subnet
+    // queue so the UI's "waiting for background refresh" state is short-lived.
+    .sort((a, b) => (a.netuid === 0 ? -1 : b.netuid === 0 ? 1 : a.priority - b.priority || a.updatedAt - b.updatedAt || a.netuid - b.netuid))
     .slice(0, STAKING_WARMUP_BATCH_SIZE)
     .map(candidate => candidate.netuid);
 }
@@ -684,7 +687,9 @@ export default {
       ctx.waitUntil((async () => {
         const data = await refreshCore(env);
         try {
-          await warmupStakingSnapshots(env, data.subnets);
+          // Root has a Staking page but is intentionally absent from the
+          // active-subnet core list, so explicitly include it in pre-warming.
+          await warmupStakingSnapshots(env, [{ id: 0 }, ...data.subnets]);
         } catch (error) {
           // A staking warm-up failure must never make the core cron look failed.
           console.error('staking warm-up failed after core refresh', { error: error?.message });

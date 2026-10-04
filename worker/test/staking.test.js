@@ -118,16 +118,17 @@ test('failed background refresh preserves a stale snapshot that remains readable
   }
 });
 
-test('warm-up selects missing, invalid, then oldest expired snapshots', async () => {
+test('warm-up selects stale Root first, then missing, invalid, and oldest expired snapshots', async () => {
   const now = Date.now();
   const kv = new MemoryKV({
+    taoflow_staking_0: snapshot(new Date(now - 26 * 60 * 60 * 1000).toISOString()),
     taoflow_staking_1: snapshot(new Date(now - 60 * 60 * 1000).toISOString()),
     taoflow_staking_3: snapshot('not-a-date'),
     taoflow_staking_4: snapshot(new Date(now - 26 * 60 * 60 * 1000).toISOString()),
     taoflow_staking_5: snapshot(new Date(now - 40 * 60 * 60 * 1000).toISOString()),
   });
-  const selected = await selectStakingWarmupNetuids(envWith(kv), [1, 2, 3, 4, 5].map(id => ({ id })), now);
-  assert.deepEqual(selected, [2, 3, 5, 4]);
+  const selected = await selectStakingWarmupNetuids(envWith(kv), [0, 1, 2, 3, 4, 5].map(id => ({ id })), now);
+  assert.deepEqual(selected, [0, 2, 3, 5]);
 });
 
 test('warm-up shares one take map request and never exceeds configured concurrency', async () => {
