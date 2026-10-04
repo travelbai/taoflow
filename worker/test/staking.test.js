@@ -35,11 +35,12 @@ function envWith(kv) {
   return { TAOFLOW_KV: kv, TAOSTATS_API_KEY: 'test-key', REFRESH_TOKEN: 'refresh-token' };
 }
 
-test('/staking/apy only reads KV and chooses the highest 7D validator', async () => {
+test('/staking/apy only reads KV and chooses the highest 7D eligible validator', async () => {
   const kv = new MemoryKV({
     taoflow_staking_1: snapshot(new Date().toISOString(), [
-      { name: 'Lower', hotkey: 'lower', apy_1h: 1, apy_1d: 2, apy_7d: 3, apy_30d: 4 },
-      { name: 'Higher', hotkey: 'higher', apy_1h: 5, apy_1d: 6, apy_7d: 7, apy_30d: 8 },
+      { name: 'Lower', hotkey: 'lower', stake: 2_000, apy_1h: 1, apy_1d: 2, apy_7d: 3, apy_30d: 4 },
+      { name: 'Higher', hotkey: 'higher', stake: 2_000, apy_1h: 5, apy_1d: 6, apy_7d: 7, apy_30d: 8 },
+      { name: 'Tiny outlier', hotkey: 'tiny', stake: 999, apy_1h: 9999, apy_1d: 9999, apy_7d: 9999, apy_30d: 9999 },
     ]),
   });
   const originalFetch = globalThis.fetch;

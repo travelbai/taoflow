@@ -35,6 +35,9 @@ const lastRefreshAt = new Map(); // type → epoch ms
 // and burn Taostats quota with garbage requests.
 const MAX_NETUID = 1024;
 const STAKING_TTL_MS = 24 * 60 * 60 * 1000;
+// Keep the ranking representative consistent with the Staking page's default
+// view: tiny validator positions can report extreme, non-actionable APY.
+const APY_REPRESENTATIVE_MIN_STAKE = 1000;
 
 // Taostats' free tier is deliberately treated as a scarce, shared resource.
 // Four subnets per 20-minute core refresh covers 128 subnets in ~10.7 hours;
@@ -386,7 +389,8 @@ async function fetchStakingForNetuid(env, netuid, takeMap) {
 // Taostats. Returning only the representative validator keeps this endpoint
 // compact while preserving all APY windows needed by the ranking UI.
 function buildSubnetApySummary(snapshot) {
-  const validators = Array.isArray(snapshot?.data) ? snapshot.data : [];
+  const validators = (Array.isArray(snapshot?.data) ? snapshot.data : [])
+    .filter(validator => Number(validator?.stake ?? 0) >= APY_REPRESENTATIVE_MIN_STAKE);
   const validator = validators.reduce((best, current) => {
     const currentApy = Number(current?.apy_7d);
     const bestApy = Number(best?.apy_7d);
